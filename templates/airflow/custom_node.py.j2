@@ -1,0 +1,16 @@
+# Custom transformation node: {{ description }}
+# AI-generated transformation for: {{ use_case }}
+# Generated at: {{ generated_at }}
+
+from dq_tools_runtime.nodes import CustomCodeTransform
+
+{{ task_id }} = PythonOperator(
+    task_id="{{ task_id }}",
+    python_callable=CustomCodeTransform(
+        code={{ code | tojson }},
+        function_name="transform",
+        description={{ description | tojson }},
+    ).execute,
+    op_kwargs={"input_key": "xcom_working_data"},
+    dag=dag,
+)
