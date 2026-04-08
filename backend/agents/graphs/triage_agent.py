@@ -142,7 +142,7 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
         entry["sample_failing_rows"] = r.get("sample_failing_rows", [])[:5]
         rules_for_prompt.append(entry)
 
-    messages = [
+    messages: list[dict] = [
         {
             "role": "user",
             "content": (
@@ -161,7 +161,7 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
         response = call_claude_with_retry(
             client,
             model=MODEL,
-            max_tokens=4096,
+            max_tokens=8192,
             system=TRIAGE_SYSTEM_PROMPT,
             tools=EXPLORER_TOOLS,
             messages=messages,
@@ -210,6 +210,34 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
         classifications = parsed
     else:
         logger.warning("[triage:%s] Could not parse classification JSON — using fallback", session_id[:8])
+
+    # Re-prompt for JSON if initial parse failed
+    if not classifications:
+        logger.info("[triage:%s] Initial parse failed — re-prompting for JSON only", session_id[:8])
+        json_request_messages = list(messages)
+        if last_response:
+            assistant_text = "".join(b.text for b in last_response.content if hasattr(b, "text"))
+            json_request_messages.append({"role": "assistant", "content": assistant_text})
+        json_request_messages.append({
+            "role": "user",
+            "content": "Output ONLY the JSON object with classifications and summary. No prose, no explanation.",
+        })
+        json_response = call_claude_with_retry(
+            client,
+            model=MODEL,
+            max_tokens=8192,
+            system=TRIAGE_SYSTEM_PROMPT,
+            tools=EXPLORER_TOOLS,
+            messages=json_request_messages,
+        )
+        retry_text = "".join(b.text for b in json_response.content if hasattr(b, "text"))
+        retry_parsed = _parse_json(retry_text)
+        if isinstance(retry_parsed, dict) and isinstance(retry_parsed.get("classifications"), list):
+            classifications = retry_parsed["classifications"]
+        elif isinstance(retry_parsed, list):
+            classifications = retry_parsed
+        else:
+            logger.warning("[triage:%s] Re-prompt also failed — using fallback", session_id[:8])
 
     classifications = _validate_classifications(classifications, failing_rules)
     summary = _build_summary(classifications)
