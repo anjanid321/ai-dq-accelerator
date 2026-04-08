@@ -115,7 +115,8 @@ export function ValidateStage({ session }: Props) {
     )
   }
 
-  const score = session?.baseline_quality_score ?? 0
+  const score = session?.current_score ?? session?.baseline_quality_score ?? 0
+  const baseline = session?.baseline_quality_score ?? 0
   const errored = perRule.filter(r => !!r.error).length
   const passed = perRule.filter(r => r.passed && !r.error).length
   const failed = perRule.length - passed - errored
@@ -132,7 +133,12 @@ export function ValidateStage({ session }: Props) {
       {/* Score header */}
       <div className="rounded-xl bg-surface-raised border border-border p-5">
         <div className="flex items-center gap-6">
-          <div className="text-5xl font-bold text-text">{Math.round(score * 100)}<span className="text-2xl text-text-muted">%</span></div>
+          <div>
+            <div className="text-5xl font-bold text-text">{Math.round(score * 100)}<span className="text-2xl text-text-muted">%</span></div>
+            {score !== baseline && (
+              <div className="text-xs text-text-muted/60 mt-1">baseline: {Math.round(baseline * 100)}%</div>
+            )}
+          </div>
           <div>
             <div className="text-xs text-text-muted uppercase tracking-wider mb-1">Quality Score</div>
             <div className="text-sm text-text-muted">
