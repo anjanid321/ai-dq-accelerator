@@ -371,6 +371,28 @@ class DQAcceleratorWorkflow:
         )
         self.transform_plan = plan_result
 
+        # Replace Claude's estimated projected_score_delta with formula-based values
+        for step in plan_result.get("steps", []):
+            if step.get("type") == "custom":
+                continue  # custom steps have no code yet — keep Claude's estimate
+            try:
+                spec = {**(step.get("params") or {}), "id": step.get("id", ""), "type": step.get("type", "")}
+                preview = await workflow.execute_activity(
+                    preview_transformation_activity,
+                    {
+                        "session_id": self.session_id,
+                        "transformation_spec": spec,
+                        "approved_rules": self.approved_rules,
+                    },
+                    start_to_close_timeout=ACTIVITY_TIMEOUT,
+                    retry_policy=ACTIVITY_RETRY,
+                )
+                formula_delta = preview.get("projected_score_delta")
+                if formula_delta is not None:
+                    step["projected_score_delta"] = formula_delta
+            except Exception:
+                pass  # keep Claude's estimate if preview fails
+
         # ── Stage: AWAITING_PLAN_APPROVAL ──────────────────────────────────
         self.stage = "AWAITING_PLAN_APPROVAL"
         await workflow.wait_condition(lambda: self.plan_decision is not None)
