@@ -11,18 +11,21 @@ import { LoadingStage } from '@/components/stages/LoadingStage'
 import { ProfileStage } from '@/components/stages/ProfileStage'
 import { RulesStage } from '@/components/stages/RulesStage'
 import { ValidateStage } from '@/components/stages/ValidateStage'
-import { TransformStage } from '@/components/stages/TransformStage'
+import { PlanningStage } from '@/components/stages/PlanningStage'
+import { PlanReviewStage } from '@/components/stages/PlanReviewStage'
+import { ExecutionStage } from '@/components/stages/ExecutionStage'
 import { ScorecardStage } from '@/components/stages/ScorecardStage'
 import { PipelineStage } from '@/components/stages/PipelineStage'
 import { TriageStage } from '@/components/stages/TriageStage'
 
 function workflowToStepper(stage: string): { active: StageId; completed: StageId[] } {
-  const ORDER: StageId[] = ['load', 'profile', 'rules', 'validate', 'triage', 'transform', 'scorecard', 'pipeline']
+  const ORDER: StageId[] = ['load', 'profile', 'rules', 'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline']
   const STAGE_MAP: Record<string, StageId> = {
     LOADING: 'load', PROFILING: 'profile',
     AWAITING_RULE_APPROVAL: 'rules', VALIDATING: 'validate',
     TRIAGING: 'triage', AWAITING_TRIAGE_APPROVAL: 'triage',
-    TRANSFORMATION_LOOP: 'transform',
+    PLANNING: 'plan', AWAITING_PLAN_APPROVAL: 'plan',
+    TRANSFORMATION_LOOP: 'transform', AWAITING_HUMAN_INPUT: 'transform',
     AWAITING_PIPELINE_CONFIRMATION: 'pipeline',
     GENERATING: 'pipeline', COMPLETE: 'pipeline',
   }
@@ -34,7 +37,9 @@ function workflowToStepper(stage: string): { active: StageId; completed: StageId
 const WAITING_MESSAGES: Record<string, string> = {
   AWAITING_RULE_APPROVAL: 'Awaiting rule decisions',
   AWAITING_TRIAGE_APPROVAL: 'Awaiting triage decisions',
-  TRANSFORMATION_LOOP: 'Awaiting transform decision',
+  AWAITING_PLAN_APPROVAL: 'Awaiting plan approval',
+  TRANSFORMATION_LOOP: 'Executing transform plan...',
+  AWAITING_HUMAN_INPUT: 'Awaiting your input',
   AWAITING_PIPELINE_CONFIRMATION: 'Awaiting pipeline confirmation',
 }
 
@@ -64,7 +69,8 @@ export default function WorkspacePage() {
       case 'rules': return <RulesStage session={session!} />
       case 'validate': return <ValidateStage session={session ?? null} />
       case 'triage': return <TriageStage session={session!} />
-      case 'transform': return <TransformStage session={session!} />
+      case 'plan': return session?.stage === 'PLANNING' ? <PlanningStage /> : <PlanReviewStage session={session!} />
+      case 'transform': return <ExecutionStage session={session!} />
       case 'scorecard': return <ScorecardStage sessionId={id} />
       case 'pipeline': return <PipelineStage sessionId={id} stage={stage} />
       default: return <LoadingStage />

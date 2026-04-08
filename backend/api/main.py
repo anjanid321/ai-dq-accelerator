@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from temporalio.client import Client
 
-from backend.api.routers import sessions, rules, transformations, pipeline, triage
+from backend.api.routers import sessions, rules, transformations, pipeline, triage, plan_router
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,7 @@ app.include_router(rules.router, prefix="/api/v1", tags=["rules"])
 app.include_router(transformations.router, prefix="/api/v1", tags=["transformations"])
 app.include_router(pipeline.router, prefix="/api/v1", tags=["pipeline"])
 app.include_router(triage.router, prefix="/api/v1", tags=["triage"])
+app.include_router(plan_router.router, prefix="/api/v1", tags=["plan"])
 
 
 @app.get("/health")

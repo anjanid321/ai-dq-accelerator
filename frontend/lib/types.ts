@@ -40,6 +40,18 @@ export interface CurrentSuggestion {
   preview?: TransformationPreview
 }
 
+export interface PostStepRuleResult {
+  id: string
+  category: string
+  check: string
+  column?: string
+  passed: boolean
+  failure_count: number
+  failure_rate: number
+  rationale?: string
+  error?: string
+}
+
 export interface TransformationLogEntry {
   id: string
   type: string
@@ -50,6 +62,7 @@ export interface TransformationLogEntry {
   custom_code?: string
   rationale?: string
   regressions?: unknown[]
+  post_step_per_rule?: PostStepRuleResult[]
 }
 
 export interface PerRuleResult {

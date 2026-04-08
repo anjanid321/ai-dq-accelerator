@@ -177,7 +177,7 @@ columns with unexpected missingness, and columns likely to have format inconsist
     text = response.content[0].text
     parsed = _parse_json(text)
 
-    if not parsed:
+    if not isinstance(parsed, dict):
         all_cols = list(profile.get("variables_summary", {}).keys())
         return {
             **state,

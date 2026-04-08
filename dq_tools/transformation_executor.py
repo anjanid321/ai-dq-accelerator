@@ -7,6 +7,7 @@ working dataset, with preview support and an append-only transformation log.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -236,7 +237,7 @@ def _apply_transform(df: pd.DataFrame, spec: dict) -> tuple[pd.DataFrame, int]:
         if code:
             local_ns: dict = {}
             try:
-                exec(code, {"pd": pd, "np": np, "__builtins__": _SAFE_BUILTINS}, local_ns)  # noqa: S102
+                exec(code, {"pd": pd, "np": np, "re": re, "__builtins__": _SAFE_BUILTINS}, local_ns)  # noqa: S102
                 transform_fn = local_ns.get("transform")
                 if callable(transform_fn):
                     before_hash = pd.util.hash_pandas_object(new_df).sum()

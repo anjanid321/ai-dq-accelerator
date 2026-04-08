@@ -30,6 +30,8 @@ from backend.temporal.activities.transform_activities import (
     apply_transformation_activity,
     update_scorecard_activity,
     generate_scorecard_summary_activity,
+    plan_transforms_activity,
+    generate_custom_code_activity,
 )
 from backend.temporal.activities.pipeline_activities import (
     generate_pipeline_activity,
@@ -66,6 +68,8 @@ async def main():
             apply_transformation_activity,
             update_scorecard_activity,
             generate_scorecard_summary_activity,
+            plan_transforms_activity,
+            generate_custom_code_activity,
             generate_pipeline_activity,
             export_working_dataset_activity,
             zip_output_activity,

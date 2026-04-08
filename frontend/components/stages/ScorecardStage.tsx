@@ -1,7 +1,82 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { getScorecard } from '@/lib/api'
-import type { ScorecardResponse } from '@/lib/types'
+import type { ScorecardResponse, TransformationLogEntry } from '@/lib/types'
+import { CodeBlock } from './CodeBlock'
+
+function TransformRow({ entry }: { entry: TransformationLogEntry }) {
+  const [expanded, setExpanded] = useState(false)
+  const isApplied = entry.status === 'applied'
+  const hasDetail = Object.keys(entry.params ?? {}).length > 0 || entry.custom_code || entry.rationale || (entry.regressions && entry.regressions.length > 0)
+
+  return (
+    <div className={`border-b border-surface ${!isApplied ? 'opacity-50' : ''}`}>
+      <div
+        className={`grid grid-cols-[24px_2fr_1fr_1fr_80px] px-3.5 py-2.5 text-xs gap-2 items-center ${hasDetail ? 'cursor-pointer hover:bg-white/2' : ''}`}
+        onClick={() => hasDetail && setExpanded(v => !v)}
+      >
+        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${isApplied ? 'bg-success/20 text-success-light' : 'bg-danger/20 text-danger-light'}`}>{isApplied ? '✓' : '✗'}</div>
+        <span className="font-mono text-text-primary truncate flex items-center gap-1">
+          {entry.type}{entry.params.column ? ` · ${entry.params.column}` : ''}
+          {hasDetail && <span className="text-[10px] text-text-muted/40 ml-1">{expanded ? '▴' : '▾'}</span>}
+        </span>
+        <span className="text-text-muted">{entry.affected_rows.toLocaleString()}</span>
+        <span className={isApplied ? 'text-success-light font-semibold' : 'text-text-muted'}>
+          {isApplied ? `+${Math.round(entry.score_delta * 100)}%` : '—'}
+        </span>
+        <span className={`text-[10px] px-2 py-0.5 rounded text-center ${isApplied ? 'bg-success/15 text-success-light' : 'bg-danger/15 text-danger-light'}`}>{entry.status}</span>
+      </div>
+      {expanded && hasDetail && (
+        <div className="mx-3.5 mb-2.5 px-3 py-2.5 bg-elevated rounded-lg border border-border space-y-2 text-xs">
+          {entry.rationale && (
+            <div><span className="text-text-muted/60 uppercase tracking-wider text-[10px]">Rationale</span><p className="text-text-muted mt-0.5">{entry.rationale}</p></div>
+          )}
+          {Object.keys(entry.params ?? {}).length > 0 && (
+            <div>
+              <span className="text-text-muted/60 uppercase tracking-wider text-[10px]">Params</span>
+              <pre className="mt-0.5 text-[11px] text-text-muted/80 overflow-x-auto whitespace-pre-wrap break-all">{JSON.stringify(entry.params, null, 2)}</pre>
+            </div>
+          )}
+          {entry.custom_code && (
+            <div>
+              <span className="text-text-muted/60 uppercase tracking-wider text-[10px]">Custom Code</span>
+              <div className="mt-0.5 bg-surface rounded overflow-x-auto">
+                <CodeBlock code={entry.custom_code} />
+              </div>
+            </div>
+          )}
+          {entry.post_step_per_rule && entry.post_step_per_rule.length > 0 && (
+            <div>
+              <span className="text-text-muted/60 uppercase tracking-wider text-[10px]">
+                Rule State After This Step
+                <span className="ml-2 normal-case text-text-muted/40">
+                  {entry.post_step_per_rule.filter(r => !r.passed).length} failing / {entry.post_step_per_rule.length} total
+                </span>
+              </span>
+              <div className="mt-1 space-y-0.5">
+                {entry.post_step_per_rule.map(rule => (
+                  <div key={rule.id} className={`flex items-center gap-2 px-2 py-1 rounded text-[11px] ${rule.passed ? 'opacity-40' : 'bg-red-500/10'}`}>
+                    <span className={rule.passed ? 'text-success-light' : 'text-red-400'}>{rule.passed ? '✓' : '✗'}</span>
+                    <span className="font-mono text-text-muted/80 shrink-0">{rule.id}</span>
+                    {rule.column && <span className="text-text-muted/50 font-mono shrink-0">· {rule.column}</span>}
+                    <span className="text-text-muted/60 truncate">{rule.check}</span>
+                    {!rule.passed && <span className="text-red-400/70 shrink-0 ml-auto">{rule.failure_count.toLocaleString()} failures</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {entry.regressions && entry.regressions.length > 0 && (
+            <div>
+              <span className="text-text-muted/60 uppercase tracking-wider text-[10px]">Regressions</span>
+              <pre className="mt-0.5 text-[11px] text-red-400/80 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(entry.regressions, null, 2)}</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function ScorecardStage({ sessionId }: { sessionId: string }) {
   const [data, setData] = useState<ScorecardResponse | null>(null)
@@ -78,15 +153,7 @@ export function ScorecardStage({ sessionId }: { sessionId: string }) {
               <span/><span>Transform</span><span>Rows</span><span>Delta</span><span>Status</span>
             </div>
             {data.transformation_log.map(entry => (
-              <div key={entry.id} className={`grid grid-cols-[24px_2fr_1fr_1fr_80px] px-3.5 py-2.5 border-b border-surface text-xs gap-2 items-center ${entry.status === 'rejected' ? 'opacity-50' : ''}`}>
-                <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${entry.status === 'applied' ? 'bg-success/20 text-success-light' : 'bg-danger/20 text-danger-light'}`}>{entry.status === 'applied' ? '✓' : '✗'}</div>
-                <span className="font-mono text-text-primary truncate">{entry.type}{entry.params.column ? ` · ${entry.params.column}` : ''}</span>
-                <span className="text-text-muted">{entry.affected_rows.toLocaleString()}</span>
-                <span className={entry.status === 'applied' ? 'text-success-light font-semibold' : 'text-text-muted'}>
-                  {entry.status === 'applied' ? `+${Math.round(entry.score_delta * 100)}%` : '—'}
-                </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded text-center ${entry.status === 'applied' ? 'bg-success/15 text-success-light' : 'bg-danger/15 text-danger-light'}`}>{entry.status}</span>
-              </div>
+              <TransformRow key={entry.id} entry={entry} />
             ))}
           </div>
         </>

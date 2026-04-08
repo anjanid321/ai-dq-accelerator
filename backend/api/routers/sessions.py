@@ -151,6 +151,8 @@ async def get_session(session_id: str, request: Request):
         zip_path=state.get("zip_path", ""),
         validation_results=state.get("validation_results", {}),
         triage_result=state.get("triage_result", {}),
+        transform_plan=state.get("transform_plan"),
+        execution_escalation=state.get("execution_escalation"),
     )
 
 

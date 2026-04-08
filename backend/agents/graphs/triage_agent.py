@@ -206,6 +206,8 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
     classifications: list[dict] = []
     if isinstance(parsed, dict) and isinstance(parsed.get("classifications"), list):
         classifications = parsed["classifications"]
+    elif isinstance(parsed, list):
+        classifications = parsed
     else:
         logger.warning("[triage:%s] Could not parse classification JSON — using fallback", session_id[:8])
 

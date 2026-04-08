@@ -60,10 +60,11 @@ class CustomCodeTransform:
 
     def _get_function(self):
         """Compile and return the transformation function."""
+        import re
         import pandas as pd
         import numpy as np
 
-        namespace: dict[str, Any] = {"pd": pd, "np": np, "__builtins__": {}}
+        namespace: dict[str, Any] = {"pd": pd, "np": np, "re": re, "__builtins__": {}}
         exec(compile(self.code, "<generated>", "exec"), namespace)  # noqa: S102
 
         fn = namespace.get(self.function_name)

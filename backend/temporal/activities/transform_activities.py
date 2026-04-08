@@ -2,6 +2,8 @@
 from temporalio import activity
 import asyncio
 from functools import partial
+from backend.agents.graphs.transform_planner import run_transform_planner
+from backend.agents.graphs.custom_code_generator import run_custom_code_generator
 
 
 @activity.defn
@@ -130,3 +132,41 @@ def _generate_scorecard_summary_sync(params: dict) -> dict:
         use_case=params.get("use_case", ""),
     )
     return {"scorecard": scorecard, "narrative": narrative}
+
+
+@activity.defn
+async def plan_transforms_activity(params: dict) -> dict:
+    """
+    params: {session_id, fixable_rules, validation_results, profile, use_case, transformation_log}
+    Returns: {steps, summary, projected_final_score}
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, partial(_plan_transforms_sync, params))
+
+def _plan_transforms_sync(params: dict) -> dict:
+    return run_transform_planner(
+        session_id=params["session_id"],
+        fixable_rules=params.get("fixable_rules", []),
+        validation_results=params.get("validation_results", {}),
+        profile=params.get("profile", {}),
+        use_case=params.get("use_case", ""),
+        transformation_log=params.get("transformation_log", []),
+    )
+
+
+@activity.defn
+async def generate_custom_code_activity(params: dict) -> dict:
+    """
+    params: {session_id, step, prior_context, human_instruction}
+    Returns: {custom_code: str | None, validation_passed: bool}
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, partial(_generate_custom_code_sync, params))
+
+def _generate_custom_code_sync(params: dict) -> dict:
+    return run_custom_code_generator(
+        session_id=params["session_id"],
+        step=params["step"],
+        prior_context=params.get("prior_context", ""),
+        human_instruction=params.get("human_instruction"),
+    )
