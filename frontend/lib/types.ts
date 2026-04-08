@@ -117,6 +117,9 @@ export interface TransformPlanStep {
   intent?: string
   target_columns?: string[]
   approach?: string
+  before_sample?: Record<string, unknown>[]
+  after_sample?: Record<string, unknown>[]
+  affected_row_count?: number
 }
 
 export interface TransformPlan {

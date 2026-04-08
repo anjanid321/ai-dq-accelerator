@@ -22,6 +22,38 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'text-text-muted/50',
 }
 
+function SampleTable({ label, rows }: { label: string; rows: Record<string, unknown>[] }) {
+  if (!rows.length) return null
+  const keys = Object.keys(rows[0]).slice(0, 3)
+  return (
+    <div>
+      <div className="text-[9px] uppercase tracking-wider text-text-muted/50 mb-0.5">{label}</div>
+      <div className="overflow-x-auto rounded border border-border/50">
+        <table className="w-full text-[10px]">
+          <thead>
+            <tr className="border-b border-border/30">
+              {keys.map(k => <th key={k} className="px-1.5 py-0.5 text-left text-text-muted/60 font-medium">{k}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, 5).map((row, i) => (
+              <tr key={i} className="border-b border-border/20 last:border-0">
+                {keys.map(k => (
+                  <td key={k} className="px-1.5 py-0.5 font-mono text-text-muted truncate max-w-[100px]">
+                    {row[k] === null || row[k] === undefined
+                      ? <span className="italic text-text-muted/40">null</span>
+                      : String(row[k])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const statusColor = STATUS_COLORS[step.status] ?? 'text-text-muted'
@@ -82,6 +114,17 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
           )}
           {step.targets_rules?.length > 0 && (
             <div><span className="text-text-muted/60 uppercase tracking-wider text-[10px]">Targets Rules</span><p className="font-mono text-text-muted/80 mt-0.5">{step.targets_rules.join(', ')}</p></div>
+          )}
+          {step.before_sample && step.before_sample.length > 0 && step.after_sample && step.after_sample.length > 0 && (
+            <div>
+              <span className="text-text-muted/60 uppercase tracking-wider text-[10px]">
+                Before / After{step.affected_row_count != null ? ` · ${step.affected_row_count} rows affected` : ''}
+              </span>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <SampleTable label="Before" rows={step.before_sample} />
+                <SampleTable label="After" rows={step.after_sample} />
+              </div>
+            </div>
           )}
         </div>
       )}

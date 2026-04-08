@@ -507,6 +507,25 @@ class DQAcceleratorWorkflow:
                 "custom_code": steps[i].get("custom_code"),
                 "rationale": step.get("rationale", ""),
             }
+
+            # 4a. Capture before/after preview snapshot
+            try:
+                step_preview = await workflow.execute_activity(
+                    preview_transformation_activity,
+                    {
+                        "session_id": self.session_id,
+                        "transformation_spec": transformation_spec,
+                        "approved_rules": self.approved_rules,
+                    },
+                    start_to_close_timeout=ACTIVITY_TIMEOUT,
+                    retry_policy=ACTIVITY_RETRY,
+                )
+                steps[i]["before_sample"] = step_preview.get("before_sample", [])
+                steps[i]["after_sample"] = step_preview.get("after_sample", [])
+                steps[i]["affected_row_count"] = step_preview.get("affected_row_count", 0)
+            except Exception:
+                pass  # non-fatal — missing preview is fine
+
             try:
                 apply_result = await workflow.execute_activity(
                     apply_transformation_activity,
