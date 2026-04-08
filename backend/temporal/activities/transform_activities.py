@@ -170,3 +170,58 @@ def _generate_custom_code_sync(params: dict) -> dict:
         prior_context=params.get("prior_context", ""),
         human_instruction=params.get("human_instruction"),
     )
+
+
+@activity.defn
+async def verify_transform_activity(params: dict) -> dict:
+    """
+    params: {step, before_sample, after_sample, actual_score_delta, targeted_rules}
+    Returns: {verdict: "correct"|"incorrect", explanation: str, suggestion: dict|None}
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, partial(_verify_transform_sync, params))
+
+def _verify_transform_sync(params: dict) -> dict:
+    import anthropic
+    import json as _json
+    from backend.agents.retry import call_claude_with_retry
+
+    step = params.get("step", {})
+    before_sample = params.get("before_sample", [])
+    after_sample = params.get("after_sample", [])
+    actual_score_delta = params.get("actual_score_delta", 0.0)
+    targeted_rules = params.get("targeted_rules", [])
+
+    client = anthropic.Anthropic()
+    system = (
+        "You verify data transformation outcomes. "
+        "Given a transformation spec, before/after row samples, and targeted rules, "
+        "decide if the transformation achieved its intended goal. "
+        "Be lenient — only flag as incorrect if the data clearly shows the transform "
+        "had no effect, applied to wrong rows, or made things worse. "
+        'Output ONLY valid JSON: {"verdict": "correct"|"incorrect", "explanation": "one sentence", "suggestion": null or a transform spec dict}'
+    )
+    user_content = (
+        f"Transform: {_json.dumps(step, default=str)}\n"
+        f"Targeted rules: {_json.dumps(targeted_rules, default=str)}\n"
+        f"Actual score delta: {actual_score_delta:+.4f}\n"
+        f"Before rows (sample): {_json.dumps(before_sample, default=str)}\n"
+        f"After rows (sample): {_json.dumps(after_sample, default=str)}\n"
+        "Did this transformation achieve its intended goal?"
+    )
+
+    response = call_claude_with_retry(
+        client,
+        model="claude-sonnet-4-6",
+        max_tokens=512,
+        system=system,
+        messages=[{"role": "user", "content": user_content}],
+    )
+    text = "".join(b.text for b in response.content if hasattr(b, "text"))
+    try:
+        result = _json.loads(text)
+        if result.get("verdict") not in ("correct", "incorrect"):
+            result["verdict"] = "correct"
+        return result
+    except Exception:
+        return {"verdict": "correct", "explanation": "Could not parse verification response.", "suggestion": None}

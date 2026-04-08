@@ -21,6 +21,7 @@ with workflow.unsafe.imports_passed_through():
         generate_scorecard_summary_activity,
         plan_transforms_activity,
         generate_custom_code_activity,
+        verify_transform_activity,
     )
     from backend.temporal.activities.pipeline_activities import (
         generate_pipeline_activity,
@@ -596,12 +597,53 @@ class DQAcceleratorWorkflow:
                 escalation_desc = f"Step {step['id']} produced much less improvement than expected"
                 escalation_context = {"projected": projected, "actual": actual_score_delta}
 
+            # 7b. Agent verification (only when no numeric escalation detected)
+            if escalation_type is None and steps[i].get("before_sample") and steps[i].get("after_sample"):
+                try:
+                    verify_result = await workflow.execute_activity(
+                        verify_transform_activity,
+                        {
+                            "step": step,
+                            "before_sample": steps[i].get("before_sample", []),
+                            "after_sample": steps[i].get("after_sample", []),
+                            "actual_score_delta": actual_score_delta,
+                            "targeted_rules": [
+                                r for r in self.validation_results.get("per_rule", [])
+                                if r.get("id") in set(step.get("targets_rules", []))
+                            ],
+                        },
+                        start_to_close_timeout=ACTIVITY_TIMEOUT,
+                        retry_policy=ACTIVITY_RETRY,
+                    )
+                    if verify_result.get("verdict") == "incorrect":
+                        escalation_type = "transform_verification_failed"
+                        escalation_desc = verify_result.get("explanation", "Transform did not achieve expected outcome")
+                        escalation_context = {
+                            "agent_suggestion": verify_result.get("suggestion"),
+                            "before_sample": steps[i].get("before_sample", []),
+                            "after_sample": steps[i].get("after_sample", []),
+                        }
+                except Exception:
+                    pass  # non-fatal — skip verification on error
+
             if escalation_type:
                 resolved = await self._escalate(step, escalation_type, escalation_desc, escalation_context)
                 if resolved["action"] == "abort_plan":
                     steps[i]["status"] = "applied"
                     steps[i]["actual_score_delta"] = actual_score_delta
                     break
+                elif resolved["action"] == "apply_suggestion":
+                    suggestion = escalation_context.get("agent_suggestion") or resolved.get("suggestion")
+                    if suggestion and isinstance(suggestion, dict):
+                        corrective = {
+                            **suggestion,
+                            "id": f"{step['id']}_correction",
+                            "status": "pending",
+                            "rationale": f"Agent-suggested correction for {step['id']}",
+                            "targets_rules": step.get("targets_rules", []),
+                            "depends_on": [step["id"]],
+                        }
+                        steps.insert(i + 1, corrective)
 
             # 8. Mark applied
             steps[i]["status"] = "applied"

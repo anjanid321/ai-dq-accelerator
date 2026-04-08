@@ -129,7 +129,7 @@ export interface TransformPlan {
 }
 
 export interface ExecutionEscalation {
-  type: 'regression' | 'divergence' | 'step_failed' | 'code_generation_failed'
+  type: 'regression' | 'divergence' | 'step_failed' | 'code_generation_failed' | 'transform_verification_failed'
   step_id: string
   description: string
   context: Record<string, unknown>

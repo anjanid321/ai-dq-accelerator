@@ -146,6 +146,7 @@ function EscalationOverlay({
 
   const isPreApplied = escalation.type === 'regression' || escalation.type === 'divergence'
   const isCodeError = escalation.type === 'code_generation_failed' || escalation.type === 'step_failed'
+  const isVerificationFailed = escalation.type === 'transform_verification_failed'
 
   async function handle(action: string, instr?: string) {
     setSubmitting(true)
@@ -191,6 +192,12 @@ function EscalationOverlay({
           <pre className="text-xs text-red-400/80 bg-surface rounded p-2 overflow-x-auto">{lastError}</pre>
         )}
 
+        {isVerificationFailed && escalation.context.before_sample && escalation.context.after_sample && (
+          <div className="grid grid-cols-2 gap-2">
+            <SampleTable label="Before" rows={escalation.context.before_sample as Record<string, unknown>[]} />
+            <SampleTable label="After" rows={escalation.context.after_sample as Record<string, unknown>[]} />
+          </div>
+        )}
         {isPreApplied && (
           <p className="text-xs text-text-muted/70 italic">This step has already been applied. You can continue or abort the plan.</p>
         )}
@@ -224,6 +231,22 @@ function EscalationOverlay({
               <button onClick={() => setShowInstruction(v => !v)} disabled={submitting}
                 className="px-3 py-1.5 rounded-lg bg-surface border border-border text-text-muted text-xs font-medium hover:border-indigo/40 disabled:opacity-40">
                 Provide Guidance ▾
+              </button>
+            </>
+          )}
+          {isVerificationFailed && (
+            <>
+              <button onClick={() => handle('apply_suggestion')} disabled={submitting}
+                className="px-3 py-1.5 rounded-lg bg-indigo/20 text-indigo-300 border border-indigo/40 text-xs font-medium hover:bg-indigo/30 disabled:opacity-40">
+                Apply Agent Suggestion
+              </button>
+              <button onClick={() => handle('continue_anyway')} disabled={submitting}
+                className="px-3 py-1.5 rounded-lg bg-surface border border-border text-text-muted text-xs font-medium hover:border-text-muted/40 disabled:opacity-40">
+                Continue Anyway
+              </button>
+              <button onClick={() => handle('abort_plan')} disabled={submitting}
+                className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/40 text-xs font-medium hover:bg-red-500/30 disabled:opacity-40">
+                Abort Plan
               </button>
             </>
           )}
