@@ -22,7 +22,13 @@ export function EventTerminal({ events }: { events: AIEvent[] }) {
           <span className="text-text-primary">{String(ev.tool ?? ev.event)}</span>
           {ev.event === 'thinking'
             ? <div className="pl-4 text-text-muted italic">{String(ev.content ?? ev.text ?? '')}</div>
-            : <div className="pl-4 text-text-muted">{JSON.stringify(ev.params ?? ev.result ?? {}).slice(0, 120)}</div>
+            : <div className="pl-4 text-text-muted">
+                {ev.event === 'tool_call'
+                  ? JSON.stringify(ev.input ?? ev.params ?? {}).slice(0, 120)
+                  : ev.event === 'tool_result'
+                      ? String(ev.preview ?? '')
+                      : JSON.stringify(ev.params ?? ev.result ?? {}).slice(0, 120)}
+              </div>
           }
         </div>
       ))}
