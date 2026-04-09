@@ -1,7 +1,11 @@
 """Pipeline generation and download endpoints."""
+
 from __future__ import annotations
 
+import asyncio
 import os
+import shutil
+from functools import partial
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -29,6 +33,41 @@ def _project_root() -> Path:
             return p
         p = p.parent
     return Path(".")
+
+
+def _expected_zip_path(session_id: str) -> Path:
+    return _project_root() / OUTPUT_DIR / "sessions" / f"{session_id}.zip"
+
+
+def _generate_pipeline_sync(session_id: str, target_env: dict, approved_rules: list) -> str:
+    """Run pipeline generation synchronously — used as Temporal fallback."""
+    from dq_tools.pipeline_generator import generate
+    from dq_tools.transformation_executor import load_transformation_log
+
+    transformation_log = load_transformation_log(session_id)
+    output_dir = generate(
+        session_id=session_id,
+        transformation_log=transformation_log,
+        approved_rules=approved_rules,
+        target_env=target_env,
+    )
+    zip_path = shutil.make_archive(
+        str(Path(output_dir)),
+        "zip",
+        str(Path(output_dir).parent),
+        Path(output_dir).name,
+    )
+    return zip_path
+
+
+def _load_approved_rules(session_id: str) -> list:
+    """Load approved rules from disk (fallback when workflow is gone)."""
+    try:
+        from dq_tools.rule_engine import load_approved_rules
+
+        return load_approved_rules(session_id)
+    except Exception:
+        return []
 
 
 @router.get("/sessions/{session_id}/scorecard", response_model=ScorecardResponse)
@@ -85,40 +124,90 @@ async def generate_pipeline(
     body: PipelineGenerateRequest,
     request: Request,
 ):
-    """Confirm pipeline generation with target environment config."""
-    client = request.app.state.temporal_client
+    """Confirm pipeline generation with target environment config.
 
+    If the Temporal workflow is no longer running (e.g. it was killed after a
+    worker restart), falls back to generating the pipeline artifacts directly
+    from data already on disk, then returns the same accepted response so the
+    frontend can poll for COMPLETE / download.
+    """
+    client = request.app.state.temporal_client
+    target_env_dict = body.target_env.model_dump()
+
+    # --- Try Temporal signal first ---
     try:
         handle = client.get_workflow_handle(session_id)
         await handle.signal(
             DQAcceleratorWorkflow.confirm_pipeline,
-            body.target_env.model_dump(),
+            target_env_dict,
+        )
+        return PipelineGenerateResponse(
+            accepted=True,
+            message="Pipeline generation started. Poll GET /sessions/{id} for completion.",
+            session_id=session_id,
         )
     except RPCError as e:
-        if e.status == RPCStatusCode.NOT_FOUND:
-            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
-        raise HTTPException(status_code=500, detail=str(e))
+        if e.status != RPCStatusCode.NOT_FOUND:
+            raise HTTPException(status_code=500, detail=str(e))
+        # Workflow gone — fall through to direct generation below
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+    # --- Fallback: generate directly from disk ---
+    # Check session data exists before attempting generation
+    session_db = _project_root() / "data" / "sessions" / session_id / "working.duckdb"
+    if not session_db.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session '{session_id}' not found — workflow is gone and no session data on disk.",
+        )
+
+    approved_rules = _load_approved_rules(session_id)
+    loop = asyncio.get_event_loop()
+    try:
+        await loop.run_in_executor(
+            None,
+            partial(_generate_pipeline_sync, session_id, target_env_dict, approved_rules),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Direct pipeline generation failed: {e}")
+
     return PipelineGenerateResponse(
         accepted=True,
-        message="Pipeline generation started. Poll GET /sessions/{id} for completion.",
+        message="Pipeline generated directly (workflow was no longer running). Ready to download.",
         session_id=session_id,
     )
 
 
 @router.get("/sessions/{session_id}/pipeline/download")
 async def download_pipeline(session_id: str, request: Request):
-    """Download the generated pipeline ZIP once generation is complete."""
-    client = request.app.state.temporal_client
+    """Download the generated pipeline ZIP once generation is complete.
 
+    Checks disk first — if the ZIP already exists it is served immediately
+    without querying Temporal.  This means the download keeps working even
+    after the Temporal workflow has closed.
+    """
+    # --- Fast path: ZIP already on disk ---
+    zip_file = _expected_zip_path(session_id)
+    if zip_file.exists():
+        return FileResponse(
+            path=str(zip_file),
+            media_type="application/zip",
+            filename=f"dq_pipeline_{session_id[:8]}.zip",
+        )
+
+    # --- Slow path: ask Temporal for status / zip_path ---
+    client = request.app.state.temporal_client
     try:
         handle = client.get_workflow_handle(session_id)
         full_state = await handle.query(DQAcceleratorWorkflow.get_full_state)
     except RPCError as e:
         if e.status == RPCStatusCode.NOT_FOUND:
-            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Pipeline ZIP not found on disk and session workflow is no longer running. "
+                "Try clicking 'Generate Pipeline' again to regenerate.",
+            )
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -130,15 +219,13 @@ async def download_pipeline(session_id: str, request: Request):
             detail=f"Pipeline not yet generated. Current stage: {stage}",
         )
 
-    zip_path = full_state.get("zip_path", "")
-    if not zip_path:
-        # Try to construct expected path
-        project_root = _project_root()
-        zip_path = str(project_root / OUTPUT_DIR / "sessions" / session_id) + ".zip"
-
+    zip_path = full_state.get("zip_path") or str(_expected_zip_path(session_id))
     zip_file = Path(zip_path)
     if not zip_file.exists():
-        raise HTTPException(status_code=404, detail="Pipeline ZIP not found. Generation may still be in progress.")
+        raise HTTPException(
+            status_code=404,
+            detail="Pipeline ZIP not found. Generation may still be in progress.",
+        )
 
     return FileResponse(
         path=str(zip_file),
