@@ -134,13 +134,22 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
 
 function EscalationOverlay({
   escalation,
+  step,
   onResolve,
 }: {
   escalation: ExecutionEscalation
-  onResolve: (action: string, instruction?: string) => Promise<void>
+  step: TransformPlanStep | undefined
+  onResolve: (action: string, instruction?: string, modifiedParams?: Record<string, unknown>) => Promise<void>
 }) {
+  const isCustomStep = step?.type === 'custom'
+  const originalParams = step?.params ? JSON.stringify(step.params, null, 2) : ''
+  const originalCode = step?.custom_code ?? ''
+
   const [instruction, setInstruction] = useState('')
-  const [showInstruction, setShowInstruction] = useState(false)
+  const [showChanges, setShowChanges] = useState(false)
+  const [paramsText, setParamsText] = useState(originalParams)
+  const [codeText, setCodeText] = useState(originalCode)
+  const [paramsError, setParamsError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -148,15 +157,37 @@ function EscalationOverlay({
   const isCodeError = escalation.type === 'code_generation_failed' || escalation.type === 'step_failed'
   const isVerificationFailed = escalation.type === 'transform_verification_failed'
 
-  async function handle(action: string, instr?: string) {
+  const paramsChanged = paramsText !== originalParams
+  const codeChanged = codeText !== originalCode
+  const hasChanges = instruction.trim().length > 0 || paramsChanged || codeChanged
+
+  async function handle(action: string, instr?: string, modParams?: Record<string, unknown>) {
     setSubmitting(true)
     setError(null)
     try {
-      await onResolve(action, instr)
+      await onResolve(action, instr, modParams)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed')
       setSubmitting(false)
     }
+  }
+
+  function handleRetryWithChanges() {
+    let parsedParams: Record<string, unknown> | undefined
+    if (paramsChanged && !isCustomStep) {
+      try {
+        parsedParams = JSON.parse(paramsText)
+        setParamsError(null)
+      } catch {
+        setParamsError('Invalid JSON — fix before retrying')
+        return
+      }
+    }
+    const instr = instruction.trim() || undefined
+    const modCode = codeChanged && isCustomStep ? codeText : undefined
+    // For custom steps, pass code as modified_params.code (convention)
+    const modParams = parsedParams ?? (modCode ? { code: modCode } : undefined)
+    handle('provide_instruction', instr, modParams)
   }
 
   const lastError = escalation.context.last_error as string | undefined
@@ -228,10 +259,6 @@ function EscalationOverlay({
                 className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/40 text-xs font-medium hover:bg-red-500/30 disabled:opacity-40">
                 Abort Plan
               </button>
-              <button onClick={() => setShowInstruction(v => !v)} disabled={submitting}
-                className="px-3 py-1.5 rounded-lg bg-surface border border-border text-text-muted text-xs font-medium hover:border-indigo/40 disabled:opacity-40">
-                Provide Guidance ▾
-              </button>
             </>
           )}
           {isVerificationFailed && (
@@ -250,22 +277,50 @@ function EscalationOverlay({
               </button>
             </>
           )}
+          <button onClick={() => setShowChanges(v => !v)} disabled={submitting}
+            className="px-3 py-1.5 rounded-lg bg-surface border border-border text-text-muted text-xs font-medium hover:border-indigo/40 disabled:opacity-40">
+            Suggest Changes {showChanges ? '▴' : '▾'}
+          </button>
         </div>
 
-        {showInstruction && isCodeError && (
-          <div className="space-y-2">
-            <textarea
-              value={instruction}
-              onChange={e => setInstruction(e.target.value)}
-              placeholder="e.g. Use median instead of zero, handle string columns by casting first..."
-              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs text-text resize-none h-20 focus:outline-none focus:border-indigo/50"
-            />
+        {showChanges && (
+          <div className="space-y-3 border-t border-border/40 pt-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-text-muted/60">Natural Language Instruction</label>
+              <textarea
+                value={instruction}
+                onChange={e => setInstruction(e.target.value)}
+                placeholder="e.g. Use median instead of zero, handle string columns by casting first..."
+                className="mt-1 w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs text-text resize-none h-16 focus:outline-none focus:border-indigo/50"
+              />
+            </div>
+            {!isCustomStep && originalParams && (
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-text-muted/60">Edit Params (JSON)</label>
+                <textarea
+                  value={paramsText}
+                  onChange={e => { setParamsText(e.target.value); setParamsError(null) }}
+                  className="mt-1 w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs text-text font-mono resize-none h-28 focus:outline-none focus:border-indigo/50"
+                />
+                {paramsError && <p className="text-[10px] text-red-400 mt-0.5">{paramsError}</p>}
+              </div>
+            )}
+            {isCustomStep && (
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-text-muted/60">Edit Custom Code</label>
+                <textarea
+                  value={codeText}
+                  onChange={e => setCodeText(e.target.value)}
+                  className="mt-1 w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs text-text font-mono resize-none h-40 focus:outline-none focus:border-indigo/50"
+                />
+              </div>
+            )}
             <button
-              onClick={() => handle('provide_instruction', instruction)}
-              disabled={!instruction.trim() || submitting}
+              onClick={handleRetryWithChanges}
+              disabled={!hasChanges || submitting}
               className="px-3 py-1.5 rounded-lg bg-indigo/20 text-indigo-300 border border-indigo/40 text-xs font-medium hover:bg-indigo/30 disabled:opacity-40"
             >
-              Retry with Instruction
+              Retry with Changes
             </button>
           </div>
         )}
@@ -294,9 +349,13 @@ export function ExecutionStage({ session }: Props) {
   const basePct = baseline_quality_score * 100
   const delta = scorePct - basePct
 
-  async function handleResolve(action: string, instruction?: string) {
-    await resolveEscalation(session.session_id, action, instruction)
+  async function handleResolve(action: string, instruction?: string, modifiedParams?: Record<string, unknown>) {
+    await resolveEscalation(session.session_id, action, instruction, modifiedParams)
   }
+
+  const escalatedStep = execution_escalation
+    ? steps.find(s => s.id === execution_escalation.step_id)
+    : undefined
 
   return (
     <div className="relative flex flex-col h-full">

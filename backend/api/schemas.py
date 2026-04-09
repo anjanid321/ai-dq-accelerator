@@ -1,4 +1,5 @@
 """Pydantic models for all API I/O."""
+
 from __future__ import annotations
 
 from enum import Enum
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field
 
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
+
 
 class WorkflowStage(str, Enum):
     LOADING = "LOADING"
@@ -36,6 +38,7 @@ class Orchestrator(str, Enum):
 
 
 # ── Shared sub-models ─────────────────────────────────────────────────────────
+
 
 class TargetEnv(BaseModel):
     warehouse: Warehouse = Warehouse.duckdb
@@ -69,23 +72,23 @@ class TriageClassification(BaseModel):
     rule_id: str
     check: str | None = None
     column: str | None = None
-    classification: str          # transform_fixable | threshold_too_strict | unfixable | eval_error
+    classification: str  # transform_fixable | threshold_too_strict | unfixable | eval_error
     proposed_threshold: float | None = None
     proposed_remove: bool = False
     reason: str = ""
-    confidence: str = "low"      # high | medium | low
+    confidence: str = "low"  # high | medium | low
 
     model_config = {"extra": "allow"}
 
 
 class TriageResult(BaseModel):
     classifications: list[TriageClassification] = []
-    summary: dict = {}           # {transform_fixable, threshold_too_strict, unfixable, eval_error}
+    summary: dict = {}  # {transform_fixable, threshold_too_strict, unfixable, eval_error}
 
 
 class TriageApprovalRequest(BaseModel):
     accepted_threshold_changes: list[dict] = []  # [{rule_id, new_threshold}]
-    rejected_rule_ids: list[str] = []            # rule IDs to remove from approved_rules
+    rejected_rule_ids: list[str] = []  # rule IDs to remove from approved_rules
 
 
 class TriageApprovalResponse(BaseModel):
@@ -107,7 +110,7 @@ class TransformPlanStep(BaseModel):
     conflicts_with: list[str] = []
     projected_score_delta: float = 0.0
     needs_review: bool = False
-    status: str = "pending"   # pending | applied | skipped | failed
+    status: str = "pending"  # pending | applied | skipped | failed
     actual_score_delta: float | None = None
     intent: str | None = None
     target_columns: list[str] | None = None
@@ -123,7 +126,7 @@ class TransformPlan(BaseModel):
 
 
 class PlanApprovalRequest(BaseModel):
-    steps: list[dict]   # full TransformPlanStep dicts; validated loosely to allow frontend edits
+    steps: list[dict]  # full TransformPlanStep dicts; validated loosely to allow frontend edits
 
 
 class PlanApprovalResponse(BaseModel):
@@ -133,8 +136,9 @@ class PlanApprovalResponse(BaseModel):
 
 
 class EscalationResolveRequest(BaseModel):
-    action: str    # continue_anyway | abort_plan | skip_step | provide_instruction
+    action: str  # continue_anyway | abort_plan | skip_step | provide_instruction
     instruction: str | None = None
+    modified_params: dict | None = None
 
 
 class EscalationResolveResponse(BaseModel):
@@ -148,7 +152,7 @@ class TransformationPreview(BaseModel):
     affected_row_count: int = 0
     projected_score_delta: float | None = None
     projected_score: float | None = None
-    error: str | None = None          # surfaces preview() runtime errors to client
+    error: str | None = None  # surfaces preview() runtime errors to client
 
 
 class TransformationLogEntry(BaseModel):
@@ -176,6 +180,7 @@ class CurrentSuggestion(BaseModel):
 
 # ── POST /sessions ─────────────────────────────────────────────────────────────
 
+
 class CreateSessionResponse(BaseModel):
     session_id: str
     workflow_id: str
@@ -186,6 +191,7 @@ class CreateSessionResponse(BaseModel):
 
 
 # ── GET /sessions/{id} ────────────────────────────────────────────────────────
+
 
 class SessionStateResponse(BaseModel):
     session_id: str
@@ -219,6 +225,7 @@ class SessionStateResponse(BaseModel):
 
 # ── POST /sessions/{id}/rules/approve ─────────────────────────────────────────
 
+
 class RuleApprovalRequest(BaseModel):
     approved_rules: list[Rule]
     rejected_rule_ids: list[str] = []
@@ -231,6 +238,7 @@ class RuleApprovalResponse(BaseModel):
 
 # ── GET /sessions/{id}/transformations/next ───────────────────────────────────
 
+
 class NextTransformationResponse(BaseModel):
     stage: WorkflowStage
     current_score: float
@@ -239,6 +247,7 @@ class NextTransformationResponse(BaseModel):
 
 
 # ── POST /sessions/{id}/transformations/{tid}/decision ───────────────────────
+
 
 class TransformationDecisionRequest(BaseModel):
     approved: bool
@@ -257,6 +266,7 @@ class TransformationDecisionResponse(BaseModel):
 
 # ── GET /sessions/{id}/scorecard ─────────────────────────────────────────────
 
+
 class ScorecardResponse(BaseModel):
     stage: WorkflowStage
     baseline_score: float
@@ -273,6 +283,7 @@ class ScorecardResponse(BaseModel):
 
 
 # ── POST /sessions/{id}/pipeline/generate ────────────────────────────────────
+
 
 class PipelineGenerateRequest(BaseModel):
     target_env: TargetEnv = Field(default_factory=TargetEnv)
