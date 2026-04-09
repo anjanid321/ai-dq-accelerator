@@ -4,6 +4,7 @@ Single-node LangGraph graph with a tool-calling loop. Investigates each
 failing rule against the live DuckDB session and outputs a classification
 for each: transform_fixable | threshold_too_strict | unfixable | eval_error.
 """
+
 from __future__ import annotations
 
 import json
@@ -54,7 +55,7 @@ def _parse_json(text: str):
         s, e = text.find(open_c), text.rfind(close_c)
         if s != -1 and e > s:
             try:
-                return json.loads(text[s:e + 1])
+                return json.loads(text[s : e + 1])
             except json.JSONDecodeError:
                 pass
     return None
@@ -69,8 +70,9 @@ def _execute_tool(session_id: str, tool_name: str, tool_input: dict):
         elif tool_name == "check_regex_pattern":
             return check_regex_pattern(session_id, tool_input["column"], tool_input["pattern"])
         elif tool_name == "get_sample_rows":
-            return get_sample_rows(session_id, n=tool_input.get("n", 10),
-                                   where_clause=tool_input.get("where_clause"))
+            return get_sample_rows(
+                session_id, n=tool_input.get("n", 10), where_clause=tool_input.get("where_clause")
+            )
         elif tool_name == "get_column_detail":
             return get_column_detail(session_id, tool_input["column"])
         else:
@@ -96,20 +98,30 @@ def _validate_classifications(classifications: list[dict], failing_rules: list[d
     for rule in failing_rules:
         rid = rule["id"]
         if rid not in classified_ids:
-            result.append({
-                "rule_id": rid,
-                "check": rule.get("check"),
-                "column": rule.get("column"),
-                "classification": "eval_error" if rule.get("error") else "transform_fixable",
-                "proposed_threshold": None,
-                "proposed_remove": bool(rule.get("error")),
-                "reason": "Not classified by agent — defaulting based on error field.",
-                "confidence": "low",
-            })
+            result.append(
+                {
+                    "rule_id": rid,
+                    "check": rule.get("check"),
+                    "column": rule.get("column"),
+                    "classification": "eval_error" if rule.get("error") else "transform_fixable",
+                    "proposed_threshold": None,
+                    "proposed_remove": bool(rule.get("error")),
+                    "reason": "Not classified by agent — defaulting based on error field.",
+                    "confidence": "low",
+                }
+            )
 
     # Ensure valid classification values and required keys
-    required_keys = {"rule_id", "check", "column", "classification",
-                     "proposed_threshold", "proposed_remove", "reason", "confidence"}
+    required_keys = {
+        "rule_id",
+        "check",
+        "column",
+        "classification",
+        "proposed_threshold",
+        "proposed_remove",
+        "reason",
+        "confidence",
+    }
     clean = []
     for c in result:
         if c.get("classification") not in VALID_CLASSIFICATIONS:
@@ -181,13 +193,14 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
                 continue
             emit(session_id, "tool_call", tool=block.name, input=block.input, iteration=iteration)
             result = _execute_tool(session_id, block.name, block.input)
-            emit(session_id, "tool_result", tool=block.name,
-                 preview=str(result)[:80])
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": block.id,
-                "content": json.dumps(result, default=str)[:8000],
-            })
+            emit(session_id, "tool_result", tool=block.name, preview=str(result)[:80])
+            tool_results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": json.dumps(result, default=str)[:8000],
+                }
+            )
 
         if not tool_results:
             break
@@ -209,7 +222,9 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
     elif isinstance(parsed, list):
         classifications = parsed
     else:
-        logger.warning("[triage:%s] Could not parse classification JSON — using fallback", session_id[:8])
+        logger.warning(
+            "[triage:%s] Could not parse classification JSON — using fallback", session_id[:8]
+        )
 
     # Re-prompt for JSON if initial parse failed
     if not classifications:
@@ -217,17 +232,20 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
         json_request_messages = list(messages)
         if last_response:
             assistant_text = "".join(b.text for b in last_response.content if hasattr(b, "text"))
-            json_request_messages.append({"role": "assistant", "content": assistant_text})
-        json_request_messages.append({
-            "role": "user",
-            "content": "Output ONLY the JSON object with classifications and summary. No prose, no explanation.",
-        })
+            if assistant_text.strip():
+                json_request_messages.append({"role": "assistant", "content": assistant_text})
+        json_request_messages.append(
+            {
+                "role": "user",
+                "content": "Output ONLY the JSON object with classifications and summary. No prose, no explanation.",
+            }
+        )
         json_response = call_claude_with_retry(
             client,
             model=MODEL,
             max_tokens=8192,
             system=TRIAGE_SYSTEM_PROMPT,
-            tools=EXPLORER_TOOLS,
+            # No tools — force a pure-text JSON response
             messages=json_request_messages,
         )
         retry_text = "".join(b.text for b in json_response.content if hasattr(b, "text"))
@@ -242,11 +260,14 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
     classifications = _validate_classifications(classifications, failing_rules)
     summary = _build_summary(classifications)
 
-    emit(session_id, "done",
-         transform_fixable=summary["transform_fixable"],
-         threshold_too_strict=summary["threshold_too_strict"],
-         unfixable=summary["unfixable"],
-         eval_error=summary["eval_error"])
+    emit(
+        session_id,
+        "done",
+        transform_fixable=summary["transform_fixable"],
+        threshold_too_strict=summary["threshold_too_strict"],
+        unfixable=summary["unfixable"],
+        eval_error=summary["eval_error"],
+    )
 
     return {**state, "classifications": classifications, "summary": summary}
 
