@@ -453,14 +453,13 @@ def _export_cleaned_parquet(session_id: str, out_path: Path) -> bool:
     db = _find_project_root() / "data" / "sessions" / session_id / "working.duckdb"
     if not db.exists():
         return False
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     with session_db_lock(session_id):
         con = duckdb_connect(str(db), read_only=True)
         try:
-            df = con.execute("SELECT * FROM working_data").fetchdf()
+            con.execute(f"COPY working_data TO '{out_path}' (FORMAT PARQUET)")
         finally:
             con.close()
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(str(out_path), index=False)
     return True
 
 
