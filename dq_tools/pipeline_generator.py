@@ -442,6 +442,351 @@ def _generate_python_pipeline(
     )
 
 
+def _export_cleaned_parquet(session_id: str, out_path: Path) -> bool:
+    """Export working_data from the session DuckDB to a parquet file.
+
+    Returns True if successful, False if the database does not exist.
+    """
+    import duckdb
+
+    from dq_tools.db import session_db_lock
+
+    db = _find_project_root() / "data" / "sessions" / session_id / "working.duckdb"
+    if not db.exists():
+        return False
+    with session_db_lock(session_id):
+        con = duckdb.connect(str(db), read_only=True)
+        try:
+            df = con.execute("SELECT * FROM working_data").fetchdf()
+        finally:
+            con.close()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(str(out_path), index=False)
+    return True
+
+
+def _notebook_code_for_transform(t: dict) -> tuple[str, str]:
+    """Return (markdown_desc, code_source) for a single transformation entry.
+
+    The code includes a before-snapshot print, the transform itself, and an
+    after-snapshot so the data scientist can see what changed.
+    """
+    t_type = t.get("type", "")
+    params = t.get("params", {})
+    t_id = t.get("id", "unknown")
+    affected = t.get("affected_rows", 0)
+
+    col = params.get("column") or (", ".join(params["columns"]) if params.get("columns") else None)
+    desc_parts = [f"### `{t_type}` — {t_id[:8]}"]
+    if col:
+        desc_parts.append(f"**Column(s):** `{col}`")
+    if affected:
+        desc_parts.append(f"**Rows affected:** {affected:,}")
+    if t_type == "custom" and params.get("description"):
+        desc_parts.append(f"\n{params['description']}")
+    markdown = "\n\n".join(desc_parts)
+
+    lines: list[str] = []
+
+    def _before(column: str) -> None:
+        lines.append(f'print("Before — nulls in {column!r}:", df[{column!r}].isna().sum())')
+        lines.append(f'print("Before — sample:", df[{column!r}].dropna().head(3).tolist())')
+
+    def _after(column: str) -> None:
+        lines.append(f'print("After  — nulls in {column!r}:", df[{column!r}].isna().sum())')
+
+    if t_type == "date_format_cast":
+        cols = params.get("columns", [])
+        fmt = params.get("from_format", "%Y-%m-%d")
+        lines.append(f"# Standardise date format → {fmt}")
+        for c in cols:
+            _before(c)
+        lines.append(f"for col in {cols!r}:")
+        lines.append(
+            f"    df[col] = pd.to_datetime(df[col], format={fmt!r}, errors='coerce').dt.strftime('%Y-%m-%d')"
+        )
+        for c in cols:
+            _after(c)
+
+    elif t_type == "null_invalid":
+        c = params.get("column", "")
+        pattern = params.get("pattern", "")
+        lines.append(f"# Null out values in {c!r} that don't match pattern {pattern!r}")
+        _before(c)
+        lines.append(
+            f"_mask = df[{c!r}].notna() & ~df[{c!r}].astype(str).str.match(r{pattern!r}, na=False)"
+        )
+        lines.append(f"df.loc[_mask, {c!r}] = None")
+        _after(c)
+
+    elif t_type == "filter_rows":
+        c = params.get("column", "")
+        op = params.get("operator", "eq")
+        val = params.get("value")
+        op_map = {
+            "eq": f"df[{c!r}] != {val!r}",
+            "ne": f"df[{c!r}] == {val!r}",
+            "lt": f"df[{c!r}] >= {val!r}",
+            "gt": f"df[{c!r}] <= {val!r}",
+            "lte": f"df[{c!r}] > {val!r}",
+            "gte": f"df[{c!r}] < {val!r}",
+            "in": f"~df[{c!r}].isin({val!r})",
+            "not_in": f"df[{c!r}].isin({val!r})",
+        }
+        expr = op_map.get(op, "True")
+        lines.append(f"# Drop rows where {c!r} {op} {val!r}")
+        lines.append("print('Before — rows:', len(df))")
+        lines.append(f"df = df[{expr}].reset_index(drop=True)")
+        lines.append("print('After  — rows:', len(df))")
+
+    elif t_type == "winsorize":
+        c = params.get("column", "")
+        cap = params.get("cap_value")
+        pct = params.get("percentile")
+        lines.append(f"# Winsorise {c!r}")
+        _before(c)
+        if pct is not None:
+            lines.append(f"_cap = df[{c!r}].quantile({pct})")
+            lines.append(f"df[{c!r}] = df[{c!r}].clip(upper=_cap)")
+        else:
+            lines.append(f"df[{c!r}] = df[{c!r}].clip(upper={cap!r})")
+        lines.append(f"print('After  — max {c!r}:', df[{c!r}].max())")
+
+    elif t_type == "impute_constant":
+        c = params.get("column", "")
+        val = params.get("value")
+        lines.append(f"# Fill nulls in {c!r} with constant {val!r}")
+        _before(c)
+        lines.append(f"df[{c!r}] = df[{c!r}].fillna({val!r})")
+        _after(c)
+
+    elif t_type == "impute_mode":
+        c = params.get("column", "")
+        lines.append(f"# Fill nulls in {c!r} with mode")
+        _before(c)
+        lines.append(f"_mode = df[{c!r}].mode()")
+        lines.append(f"if not _mode.empty: df[{c!r}] = df[{c!r}].fillna(_mode.iloc[0])")
+        _after(c)
+
+    elif t_type == "deduplicate":
+        subset = params.get("subset_columns")
+        lines.append(f"# Deduplicate on {subset!r}")
+        lines.append("print('Before — rows:', len(df))")
+        lines.append(f"df = df.drop_duplicates(subset={subset!r}).reset_index(drop=True)")
+        lines.append("print('After  — rows:', len(df))")
+
+    elif t_type == "standardize_string":
+        c = params.get("column", "")
+        lc = params.get("lowercase", False)
+        strip = params.get("strip", True)
+        rp = params.get("replace_pattern")
+        rw = params.get("replace_with", "")
+        lines.append(f"# Standardise string column {c!r}")
+        _before(c)
+        lines.append(f"_s = df[{c!r}].astype(str)")
+        if strip:
+            lines.append("_s = _s.str.strip()")
+        if lc:
+            lines.append("_s = _s.str.lower()")
+        if rp:
+            lines.append(f"_s = _s.str.replace(r{rp!r}, {rw!r}, regex=True)")
+        lines.append(f"df[{c!r}] = _s")
+        _after(c)
+
+    elif t_type == "type_cast":
+        c = params.get("column", "")
+        to_type = params.get("to_type", "str")
+        lines.append(f"# Cast {c!r} to {to_type!r}")
+        _before(c)
+        lines.append(
+            f"df[{c!r}] = pd.to_numeric(df[{c!r}], errors='coerce') "
+            f"if {to_type!r} in ('int', 'float', 'integer', 'double') "
+            f"else df[{c!r}].astype({to_type!r}, errors='ignore')"
+        )
+        lines.append(f"print('After  — dtype:', df[{c!r}].dtype)")
+
+    elif t_type == "custom":
+        code_str = params.get("code", "")
+        desc = params.get("description", "custom transformation")
+        lines.append(f"# Custom: {desc}")
+        lines.append("")
+        lines.extend(code_str.splitlines())
+        lines.append("")
+        lines.append("df = transform(df)")
+
+    else:
+        lines.append(f"# Unsupported transform type: {t_type!r} — implement manually")
+
+    return markdown, "\n".join(lines)
+
+
+def _generate_notebook(
+    session_id: str,
+    transformation_log: list[dict],
+    approved_rules: list[dict],
+    target_env: dict,
+    out_dir: Path,
+) -> None:
+    """Write a Jupyter notebook to ``out_dir/dq_pipeline.ipynb``.
+
+    The notebook documents every applied transformation with before/after
+    diagnostics so a data scientist can re-run and inspect each step.
+    """
+    applied = [t for t in transformation_log if t.get("status") == "applied"]
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    def _md(source: str) -> dict:
+        return {"cell_type": "markdown", "metadata": {}, "source": source}
+
+    def _code(source: str) -> dict:
+        return {
+            "cell_type": "code",
+            "metadata": {},
+            "source": source,
+            "outputs": [],
+            "execution_count": None,
+        }
+
+    cells: list[dict] = []
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    cells.append(
+        _md(
+            f"# Data Quality Pipeline — `{session_id[:8]}`\n\n"
+            f"Generated by **AI DQ Accelerator** on {now}.\n\n"
+            f"| | |\n|---|---|\n"
+            f"| **Use case** | {target_env.get('use_case', session_id)} |\n"
+            f"| **Transformations applied** | {len(applied)} |\n"
+            f"| **Quality score** | "
+            f"{target_env.get('baseline_score', 'N/A')} → {target_env.get('final_score', 'N/A')} |"
+        )
+    )
+
+    # ── Imports ───────────────────────────────────────────────────────────────
+    cells.append(
+        _code(
+            "import pandas as pd\n"
+            "import numpy as np\n"
+            "import re\n"
+            "import warnings\n"
+            "warnings.filterwarnings('ignore')\n"
+            "pd.set_option('display.max_columns', None)\n"
+            "pd.set_option('display.max_rows', 50)"
+        )
+    )
+
+    # ── Load data ─────────────────────────────────────────────────────────────
+    cells.append(_md("## Load Cleaned Data"))
+    cells.append(
+        _code(
+            "df = pd.read_parquet('cleaned_data.parquet')\n"
+            "print(f'Shape: {df.shape}')\n"
+            "print(f'\\nNull counts:\\n{df.isna().sum()[df.isna().sum() > 0]}')\n"
+            "df.head()"
+        )
+    )
+
+    # ── Transformations ───────────────────────────────────────────────────────
+    if applied:
+        cells.append(
+            _md(
+                "## Transformations\n\n"
+                "Each cell below corresponds to one approved transformation. "
+                "Re-run cells top-to-bottom to reproduce the pipeline."
+            )
+        )
+        for t in applied:
+            md_desc, code_src = _notebook_code_for_transform(t)
+            cells.append(_md(md_desc))
+            cells.append(_code(code_src + "\ndf.head(3)"))
+    else:
+        cells.append(
+            _md("## Transformations\n\n_No transformations were applied in this session._")
+        )
+
+    # ── Validation summary ────────────────────────────────────────────────────
+    cells.append(
+        _md(
+            "## Validation Rules\n\nRun this cell to verify the approved quality rules against the current DataFrame."
+        )
+    )
+
+    val_lines: list[str] = ["results = []"]
+    threshold: float = 0.0  # default; overridden per-rule below
+    for rule in approved_rules:
+        check = rule.get("check")
+        col = rule.get("column")
+        rid = rule.get("id", "?")
+        threshold = float(rule.get("threshold", 0.0))
+
+        if check == "not_null" and col:
+            val_lines.append(
+                f"results.append(dict(rule={rid!r}, check='not_null', column={col!r}, "
+                f"failures=int(df[{col!r}].isna().sum()), "
+                f"total=len(df)))"
+            )
+        elif check == "unique" and col:
+            val_lines.append(
+                f"results.append(dict(rule={rid!r}, check='unique', column={col!r}, "
+                f"failures=int(df[{col!r}].duplicated().sum()), "
+                f"total=len(df)))"
+            )
+        elif check == "regex_match" and col:
+            pattern = rule.get("pattern", "")
+            val_lines.append(
+                f"_non_null_{rid[:6]} = df[{col!r}].dropna().astype(str)\n"
+                f"_fail_{rid[:6]} = (~_non_null_{rid[:6]}.str.match(r{pattern!r})).sum()\n"
+                f"results.append(dict(rule={rid!r}, check='regex_match', column={col!r}, "
+                f"failures=int(_fail_{rid[:6]}), total=len(_non_null_{rid[:6]})))"
+            )
+        elif check == "value_in_set" and col:
+            values = rule.get("values", [])
+            val_lines.append(
+                f"results.append(dict(rule={rid!r}, check='value_in_set', column={col!r}, "
+                f"failures=int(~df[{col!r}].isin({values!r}).sum()), "
+                f"total=len(df)))"
+            )
+
+    val_lines += [
+        "summary = pd.DataFrame(results)",
+        "if not summary.empty:",
+        "    summary['failure_rate'] = summary['failures'] / summary['total']",
+        "    summary['passed'] = summary['failure_rate'] <= " + str(threshold),
+        "    display(summary)",
+        "else:",
+        "    print('No validatable rules.')",
+    ]
+    cells.append(_code("\n".join(val_lines)))
+
+    # ── Save output ───────────────────────────────────────────────────────────
+    cells.append(
+        _md(
+            "## Save Output\n\nSave the final DataFrame for downstream use (model training, BI, etc.)."
+        )
+    )
+    cells.append(
+        _code(
+            "output_path = 'output.parquet'\n"
+            "df.to_parquet(output_path, index=False)\n"
+            "print(f'Saved {len(df):,} rows × {len(df.columns)} columns to {output_path}')\n"
+            "df.dtypes"
+        )
+    )
+
+    notebook = {
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {
+            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+            "language_info": {"name": "python", "version": "3.10.0"},
+        },
+        "cells": cells,
+    }
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "dq_pipeline.ipynb").write_text(json.dumps(notebook, indent=1))
+
+
 def _generate_readme(
     session_id: str,
     transformation_log: list[dict],
@@ -476,6 +821,9 @@ def _generate_readme(
         "python_pipeline/",
         "  transform.py         ← Self-contained pandas pipeline",
         "  requirements.txt",
+        "notebook/",
+        "  dq_pipeline.ipynb    ← Jupyter notebook (one cell per transform, before/after)",
+        "  cleaned_data.parquet ← Cleaned dataset for the notebook",
         "quality_report/",
         "  scorecard.json       ← Final DQ scorecard",
         "checks.yml             ← SodaCL monitoring checks (run with: soda scan -d <datasource> checks.yml)",
@@ -520,6 +868,8 @@ def generate(
     - ``data_contract/schema.py`` — Pandera schema
     - ``python_pipeline/transform.py`` — pandas pipeline
     - ``python_pipeline/requirements.txt``
+    - ``notebook/dq_pipeline.ipynb`` — Jupyter notebook (one cell per transform, before/after diagnostics)
+    - ``notebook/cleaned_data.parquet`` — cleaned dataset ready to load in the notebook
     - ``quality_report/scorecard.json`` — copy of the stored scorecard
     - ``README.md``
 
@@ -661,6 +1011,14 @@ def generate(
     checks_src = _session_dir(session_id) / "checks.yml"
     if checks_src.exists():
         shutil.copy2(str(checks_src), str(out_root / "checks.yml"))
+
+    # ------------------------------------------------------------------
+    # Jupyter notebook
+    # ------------------------------------------------------------------
+    notebook_dir = out_root / "notebook"
+    notebook_dir.mkdir(parents=True, exist_ok=True)
+    _export_cleaned_parquet(session_id, notebook_dir / "cleaned_data.parquet")
+    _generate_notebook(session_id, transformation_log, approved_rules, target_env, notebook_dir)
 
     # ------------------------------------------------------------------
     # README
