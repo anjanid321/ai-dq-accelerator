@@ -290,41 +290,8 @@ def run_rules(session_id: str, rules: list[dict]) -> dict:
     checks_path.write_text(sodacl_yaml)
     logger.info("[run_rules:%s] Wrote checks.yml (%d rules)", session_id[:8], len(enriched))
 
-    # Attempt Soda scan for authoritative pass/fail outcomes
-    soda_outcomes: dict[str, bool] = {}  # rule_id -> passed
-    try:
-        import logging as _logging
-
-        _logging.getLogger("soda").setLevel(_logging.ERROR)
-        _logging.getLogger("soda_core").setLevel(_logging.ERROR)
-
-        from soda.scan import Scan
-
-        scan = Scan()
-        scan.set_data_source_name("dq")
-        scan.add_configuration_yaml_str(f"data_source dq:\n  type: duckdb\n  path: {db}\n")
-        scan.add_sodacl_yaml_str(sodacl_yaml)
-        scan.execute()
-
-        for chk in getattr(scan, "_checks", []):
-            name = getattr(chk, "name", None)
-            outcome = getattr(chk, "outcome", None)
-            if name and outcome is not None:
-                # outcome may be a CheckOutcome enum or a string
-                soda_outcomes[name] = "pass" in str(outcome).lower()
-
-        logger.info(
-            "[run_rules:%s] Soda scan complete — %d/%d outcomes captured",
-            session_id[:8],
-            len(soda_outcomes),
-            len(enriched),
-        )
-    except Exception as exc:
-        logger.warning(
-            "[run_rules:%s] Soda scan skipped (%s); using SQL fallback", session_id[:8], exc
-        )
-
     # DuckDB SQL for failure counts, rates, and sample rows
+    # (checks.yml above is the portable Soda artifact; we use SQL for live scoring)
     with session_db_lock(session_id):
         con = duckdb.connect(str(db))
         try:
@@ -350,7 +317,7 @@ def run_rules(session_id: str, rules: list[dict]) -> dict:
                             "category": category,
                             "check": rule.get("check"),
                             "column": rule.get("column"),
-                            "passed": soda_outcomes.get(rule_id, True),
+                            "passed": True,
                             "failure_count": 0,
                             "failure_rate": 0.0,
                             "sample_failing_rows": [],
@@ -372,11 +339,7 @@ def run_rules(session_id: str, rules: list[dict]) -> dict:
                     ).fetchdf()
                     sample_failing_rows = sample_df.to_dict(orient="records")
 
-                    # Use Soda outcome if available; otherwise derive from threshold
-                    if rule_id in soda_outcomes:
-                        passed = soda_outcomes[rule_id]
-                    else:
-                        passed = failure_rate <= threshold
+                    passed = failure_rate <= threshold
                     rule_error = None
 
                 except Exception as exc:
