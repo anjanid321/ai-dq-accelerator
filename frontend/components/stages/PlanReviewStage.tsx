@@ -15,16 +15,23 @@ function ParamEditor({
   params: Record<string, unknown>
   onChange: (updated: Record<string, unknown>) => void
 }) {
+  const isComplex = (v: unknown) => typeof v === 'object' && v !== null
+
   return (
     <div className="space-y-1 mt-2">
       {Object.entries(params).map(([key, value]) => (
-        <div key={key} className="flex items-center gap-2">
-          <span className="text-xs text-text-muted/70 font-mono w-24 shrink-0">{key}</span>
+        <div key={key} className="flex items-start gap-2">
+          <span className="text-xs text-text-muted/70 font-mono w-24 shrink-0 pt-0.5">{key}</span>
           <input
             type={typeof value === 'number' ? 'number' : 'text'}
-            value={String(value ?? '')}
+            value={isComplex(value) ? JSON.stringify(value) : String(value ?? '')}
             onChange={e => {
-              const newVal = typeof value === 'number' ? Number(e.target.value) : e.target.value
+              let newVal: unknown = e.target.value
+              if (typeof value === 'number') {
+                newVal = Number(e.target.value)
+              } else if (isComplex(value)) {
+                try { newVal = JSON.parse(e.target.value) } catch { newVal = e.target.value }
+              }
               onChange({ ...params, [key]: newVal })
             }}
             className="flex-1 bg-surface border border-border rounded px-2 py-0.5 text-xs text-text font-mono focus:outline-none focus:border-indigo/50"
