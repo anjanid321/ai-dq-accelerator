@@ -11,13 +11,13 @@ import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 import builtins
 
 import duckdb
 import numpy as np
 import pandas as pd
+from dq_tools.db import session_db_lock
 
 # Use the full builtins module — the real security boundary is _UNSAFE_PATTERNS
 # in the advisor (blocks import, open, os, sys, subprocess, eval, exec).
@@ -49,22 +49,24 @@ def _log_path(session_id: str) -> Path:
 
 def _load_df(session_id: str) -> pd.DataFrame:
     db = _db_path(session_id)
-    con = duckdb.connect(str(db))
-    try:
-        df = con.execute("SELECT * FROM working_data").fetchdf()
-    finally:
-        con.close()
+    with session_db_lock(session_id):
+        con = duckdb.connect(str(db))
+        try:
+            df = con.execute("SELECT * FROM working_data").fetchdf()
+        finally:
+            con.close()
     return df
 
 
 def _write_df(session_id: str, df: pd.DataFrame) -> None:
     db = _db_path(session_id)
-    con = duckdb.connect(str(db))
-    try:
-        con.execute("DROP TABLE IF EXISTS working_data")
-        con.execute("CREATE TABLE working_data AS SELECT * FROM df")
-    finally:
-        con.close()
+    with session_db_lock(session_id):
+        con = duckdb.connect(str(db))
+        try:
+            con.execute("DROP TABLE IF EXISTS working_data")
+            con.execute("CREATE TABLE working_data AS SELECT * FROM df")
+        finally:
+            con.close()
 
 
 def _apply_transform(df: pd.DataFrame, spec: dict) -> tuple[pd.DataFrame, int]:
@@ -343,10 +345,7 @@ def _get_preview_indices(
     if not approved_rules or df.empty:
         return fallback
 
-    col = (
-        transformation_spec.get("column")
-        or transformation_spec.get("params", {}).get("column")
-    )
+    col = transformation_spec.get("column") or transformation_spec.get("params", {}).get("column")
     # Note: multi-column transforms (e.g. date_format_cast uses params.columns list)
     # will have col=None here and fall back to head(5). Single-column transforms
     # (the majority) are fully supported.

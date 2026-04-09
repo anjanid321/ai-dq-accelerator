@@ -18,6 +18,7 @@ from pathlib import Path
 
 import duckdb
 import yaml
+from dq_tools.db import session_db_lock
 
 logger = logging.getLogger(__name__)
 
@@ -301,9 +302,7 @@ def run_rules(session_id: str, rules: list[dict]) -> dict:
 
         scan = Scan()
         scan.set_data_source_name("dq")
-        scan.add_configuration_yaml_str(
-            f"data_source dq:\n  type: duckdb\n  path: {db}\n"
-        )
+        scan.add_configuration_yaml_str(f"data_source dq:\n  type: duckdb\n  path: {db}\n")
         scan.add_sodacl_yaml_str(sodacl_yaml)
         scan.execute()
 
@@ -321,86 +320,91 @@ def run_rules(session_id: str, rules: list[dict]) -> dict:
             len(enriched),
         )
     except Exception as exc:
-        logger.warning("[run_rules:%s] Soda scan skipped (%s); using SQL fallback", session_id[:8], exc)
+        logger.warning(
+            "[run_rules:%s] Soda scan skipped (%s); using SQL fallback", session_id[:8], exc
+        )
 
     # DuckDB SQL for failure counts, rates, and sample rows
-    con = duckdb.connect(str(db))
-    try:
-        total_rows_row = con.execute("SELECT COUNT(*) FROM working_data").fetchone()
-        total_rows = total_rows_row[0] if total_rows_row else 0
-        per_rule: list[dict] = []
+    with session_db_lock(session_id):
+        con = duckdb.connect(str(db))
+        try:
+            total_rows_row = con.execute("SELECT COUNT(*) FROM working_data").fetchone()
+            total_rows = total_rows_row[0] if total_rows_row else 0
+            per_rule: list[dict] = []
 
-        for rule in enriched:
-            rule_id = rule.get("id", "unknown")
-            category = rule.get("category", "validity")
-            threshold = float(rule.get("threshold", 0.0))
+            for rule in enriched:
+                rule_id = rule.get("id", "unknown")
+                category = rule.get("category", "validity")
+                threshold = float(rule.get("threshold", 0.0))
 
-            condition = _build_failing_condition(rule)
-            # Sanitise LLM-generated subqueries that reference the wrong table name
-            if condition is not None:
-                condition = re.sub(r'\bFROM\s+df\b', 'FROM working_data', condition, flags=re.IGNORECASE)
-            if condition is None:
+                condition = _build_failing_condition(rule)
+                # Sanitise LLM-generated subqueries that reference the wrong table name
+                if condition is not None:
+                    condition = re.sub(
+                        r"\bFROM\s+df\b", "FROM working_data", condition, flags=re.IGNORECASE
+                    )
+                if condition is None:
+                    per_rule.append(
+                        {
+                            "id": rule_id,
+                            "category": category,
+                            "check": rule.get("check"),
+                            "column": rule.get("column"),
+                            "passed": soda_outcomes.get(rule_id, True),
+                            "failure_count": 0,
+                            "failure_rate": 0.0,
+                            "sample_failing_rows": [],
+                            "rationale": rule.get("rationale", ""),
+                            "error": None,
+                        }
+                    )
+                    continue
+
+                try:
+                    row = con.execute(
+                        f"SELECT COUNT(*) FROM working_data WHERE {condition}"
+                    ).fetchone()
+                    failure_count = row[0] if row else 0
+                    failure_rate = failure_count / total_rows if total_rows > 0 else 0.0
+
+                    sample_df = con.execute(
+                        f"SELECT * FROM working_data WHERE {condition} LIMIT 50"
+                    ).fetchdf()
+                    sample_failing_rows = sample_df.to_dict(orient="records")
+
+                    # Use Soda outcome if available; otherwise derive from threshold
+                    if rule_id in soda_outcomes:
+                        passed = soda_outcomes[rule_id]
+                    else:
+                        passed = failure_rate <= threshold
+                    rule_error = None
+
+                except Exception as exc:
+                    logger.warning(
+                        "[run_rules:%s] Rule %s eval error: %s", session_id[:8], rule_id, exc
+                    )
+                    failure_count = 0
+                    failure_rate = 0.0
+                    sample_failing_rows = []
+                    passed = False
+                    rule_error = str(exc)
+
                 per_rule.append(
                     {
                         "id": rule_id,
                         "category": category,
                         "check": rule.get("check"),
                         "column": rule.get("column"),
-                        "passed": soda_outcomes.get(rule_id, True),
-                        "failure_count": 0,
-                        "failure_rate": 0.0,
-                        "sample_failing_rows": [],
+                        "passed": passed,
+                        "failure_count": failure_count,
+                        "failure_rate": failure_rate,
+                        "sample_failing_rows": sample_failing_rows,
                         "rationale": rule.get("rationale", ""),
-                        "error": None,
+                        "error": rule_error,
                     }
                 )
-                continue
-
-            try:
-                row = con.execute(
-                    f"SELECT COUNT(*) FROM working_data WHERE {condition}"
-                ).fetchone()
-                failure_count = row[0] if row else 0
-                failure_rate = failure_count / total_rows if total_rows > 0 else 0.0
-
-                sample_df = con.execute(
-                    f"SELECT * FROM working_data WHERE {condition} LIMIT 50"
-                ).fetchdf()
-                sample_failing_rows = sample_df.to_dict(orient="records")
-
-                # Use Soda outcome if available; otherwise derive from threshold
-                if rule_id in soda_outcomes:
-                    passed = soda_outcomes[rule_id]
-                else:
-                    passed = failure_rate <= threshold
-                rule_error = None
-
-            except Exception as exc:
-                logger.warning(
-                    "[run_rules:%s] Rule %s eval error: %s", session_id[:8], rule_id, exc
-                )
-                failure_count = 0
-                failure_rate = 0.0
-                sample_failing_rows = []
-                passed = False
-                rule_error = str(exc)
-
-            per_rule.append(
-                {
-                    "id": rule_id,
-                    "category": category,
-                    "check": rule.get("check"),
-                    "column": rule.get("column"),
-                    "passed": passed,
-                    "failure_count": failure_count,
-                    "failure_rate": failure_rate,
-                    "sample_failing_rows": sample_failing_rows,
-                    "rationale": rule.get("rationale", ""),
-                    "error": rule_error,
-                }
-            )
-    finally:
-        con.close()
+        finally:
+            con.close()
 
     # Category scores — binary pass/fail per rule
     category_names = ["validity", "completeness", "uniqueness"]

@@ -14,6 +14,8 @@ import json
 import re
 from pathlib import Path
 
+from dq_tools.db import session_db_lock
+
 
 def _find_project_root() -> Path:
     p = Path(__file__).resolve().parent
@@ -36,11 +38,12 @@ def _load_df(session_id: str):
     """Load working_data as a pandas DataFrame (read-only connection)."""
     import duckdb
 
-    con = duckdb.connect(str(_db_path(session_id)), read_only=True)
-    try:
-        return con.execute("SELECT * FROM working_data").df()
-    finally:
-        con.close()
+    with session_db_lock(session_id):
+        con = duckdb.connect(str(_db_path(session_id)), read_only=True)
+        try:
+            return con.execute("SELECT * FROM working_data").df()
+        finally:
+            con.close()
 
 
 _FORBIDDEN_SQL = re.compile(
@@ -60,16 +63,19 @@ def run_sql(session_id: str, sql: str) -> list[dict] | dict:
     if _FORBIDDEN_SQL.search(sql):
         return {"error": "Only SELECT queries are allowed. Mutation keywords detected."}
 
-    con = duckdb.connect(str(_db_path(session_id)), read_only=True)
-    try:
-        result_df = con.execute(sql).df()
-        return json.loads(
-            result_df.head(200).to_json(orient="records", date_format="iso", default_handler=str)
-        )
-    except Exception as e:
-        return {"error": str(e)}
-    finally:
-        con.close()
+    with session_db_lock(session_id):
+        con = duckdb.connect(str(_db_path(session_id)), read_only=True)
+        try:
+            result_df = con.execute(sql).df()
+            return json.loads(
+                result_df.head(200).to_json(
+                    orient="records", date_format="iso", default_handler=str
+                )
+            )
+        except Exception as e:
+            return {"error": str(e)}
+        finally:
+            con.close()
 
 
 def get_value_counts(session_id: str, column: str, top_n: int = 20) -> dict:
@@ -165,20 +171,21 @@ def get_sample_rows(
     if where_clause and _FORBIDDEN_SQL.search(where_clause):
         return {"error": "Mutation keywords not allowed in WHERE clause"}
 
-    con = duckdb.connect(str(_db_path(session_id)), read_only=True)
-    try:
-        if where_clause:
-            sql = f"SELECT * FROM working_data WHERE {where_clause} LIMIT {n}"
-        else:
-            sql = f"SELECT * FROM working_data USING SAMPLE {n} ROWS"
-        result_df = con.execute(sql).df()
-        return json.loads(
-            result_df.to_json(orient="records", date_format="iso", default_handler=str)
-        )
-    except Exception as e:
-        return {"error": str(e)}
-    finally:
-        con.close()
+    with session_db_lock(session_id):
+        con = duckdb.connect(str(_db_path(session_id)), read_only=True)
+        try:
+            if where_clause:
+                sql = f"SELECT * FROM working_data WHERE {where_clause} LIMIT {n}"
+            else:
+                sql = f"SELECT * FROM working_data USING SAMPLE {n} ROWS"
+            result_df = con.execute(sql).df()
+            return json.loads(
+                result_df.to_json(orient="records", date_format="iso", default_handler=str)
+            )
+        except Exception as e:
+            return {"error": str(e)}
+        finally:
+            con.close()
 
 
 def get_column_detail(session_id: str, column: str) -> dict:

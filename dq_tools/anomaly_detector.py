@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
-import numpy as np
 import pandas as pd
+from dq_tools.db import session_db_lock
 
 
 def _find_project_root() -> Path:
@@ -130,11 +130,12 @@ def detect(
         methods = ["zscore", "iqr", "isolation_forest"]
 
     db = _db_path(session_id)
-    con = duckdb.connect(str(db))
-    try:
-        df: pd.DataFrame = con.execute("SELECT * FROM working_data").fetchdf()
-    finally:
-        con.close()
+    with session_db_lock(session_id):
+        con = duckdb.connect(str(db))
+        try:
+            df: pd.DataFrame = con.execute("SELECT * FROM working_data").fetchdf()
+        finally:
+            con.close()
 
     total_rows = len(df)
 

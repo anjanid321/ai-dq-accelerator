@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from dq_tools.db import session_db_lock
 from dq_tools.rule_engine import run_rules
 from dq_tools.transformation_executor import load_transformation_log
 
@@ -101,13 +102,14 @@ def compute_full(session_id: str, approved_rules: list[dict]) -> dict:
     db_path = _session_dir(session_id) / "working.duckdb"
     current_rows: int = 0
     if db_path.exists():
-        con = duckdb.connect(str(db_path))
-        try:
-            current_rows = con.execute("SELECT COUNT(*) FROM working_data").fetchone()[0]
-        except Exception:
-            current_rows = 0
-        finally:
-            con.close()
+        with session_db_lock(session_id):
+            con = duckdb.connect(str(db_path))
+            try:
+                current_rows = con.execute("SELECT COUNT(*) FROM working_data").fetchone()[0]
+            except Exception:
+                current_rows = 0
+            finally:
+                con.close()
 
     rows_removed: int | None = original_rows - current_rows if original_rows is not None else None
 
