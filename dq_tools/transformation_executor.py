@@ -14,10 +14,9 @@ from pathlib import Path
 
 import builtins
 
-import duckdb
 import numpy as np
 import pandas as pd
-from dq_tools.db import session_db_lock
+from dq_tools.db import duckdb_connect, session_db_lock
 
 # Use the full builtins module — the real security boundary is _UNSAFE_PATTERNS
 # in the advisor (blocks import, open, os, sys, subprocess, eval, exec).
@@ -50,7 +49,7 @@ def _log_path(session_id: str) -> Path:
 def _load_df(session_id: str) -> pd.DataFrame:
     db = _db_path(session_id)
     with session_db_lock(session_id):
-        con = duckdb.connect(str(db))
+        con = duckdb_connect(str(db))
         try:
             df = con.execute("SELECT * FROM working_data").fetchdf()
         finally:
@@ -61,7 +60,7 @@ def _load_df(session_id: str) -> pd.DataFrame:
 def _write_df(session_id: str, df: pd.DataFrame) -> None:
     db = _db_path(session_id)
     with session_db_lock(session_id):
-        con = duckdb.connect(str(db))
+        con = duckdb_connect(str(db))
         try:
             con.execute("DROP TABLE IF EXISTS working_data")
             con.execute("CREATE TABLE working_data AS SELECT * FROM df")

@@ -1,4 +1,5 @@
 """Temporal worker entry point — registers all workflows and activities."""
+
 import asyncio
 import logging
 import os
@@ -13,18 +14,18 @@ if _env_path.exists():
             _k, _, _v = _line.partition("=")
             os.environ.setdefault(_k.strip(), _v.strip())
 
-from temporalio.client import Client
-from temporalio.worker import Worker
+from temporalio.client import Client  # noqa: E402
+from temporalio.worker import Worker  # noqa: E402
 
-from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow
-from backend.temporal.activities.data_activities import (
+from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow  # noqa: E402
+from backend.temporal.activities.data_activities import (  # noqa: E402
     load_dataset_activity,
     profile_and_analyze_activity,
     run_validation_activity,
     detect_anomalies_activity,
     analyze_and_prioritize_activity,
 )
-from backend.temporal.activities.transform_activities import (
+from backend.temporal.activities.transform_activities import (  # noqa: E402
     suggest_next_transformation_activity,
     preview_transformation_activity,
     apply_transformation_activity,
@@ -32,13 +33,14 @@ from backend.temporal.activities.transform_activities import (
     generate_scorecard_summary_activity,
     plan_transforms_activity,
     generate_custom_code_activity,
+    verify_transform_activity,
 )
-from backend.temporal.activities.pipeline_activities import (
+from backend.temporal.activities.pipeline_activities import (  # noqa: E402
     generate_pipeline_activity,
     export_working_dataset_activity,
     zip_output_activity,
 )
-from backend.temporal.activities.triage_activities import triage_rules_activity
+from backend.temporal.activities.triage_activities import triage_rules_activity  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -70,6 +72,7 @@ async def main():
             generate_scorecard_summary_activity,
             plan_transforms_activity,
             generate_custom_code_activity,
+            verify_transform_activity,
             generate_pipeline_activity,
             export_working_dataset_activity,
             zip_output_activity,

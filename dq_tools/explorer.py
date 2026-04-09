@@ -14,7 +14,7 @@ import json
 import re
 from pathlib import Path
 
-from dq_tools.db import session_db_lock
+from dq_tools.db import duckdb_connect, session_db_lock
 
 
 def _find_project_root() -> Path:
@@ -36,10 +36,9 @@ def _profile_path(session_id: str) -> Path:
 
 def _load_df(session_id: str):
     """Load working_data as a pandas DataFrame (read-only connection)."""
-    import duckdb
 
     with session_db_lock(session_id):
-        con = duckdb.connect(str(_db_path(session_id)), read_only=True)
+        con = duckdb_connect(str(_db_path(session_id)), read_only=True)
         try:
             return con.execute("SELECT * FROM working_data").df()
         finally:
@@ -58,13 +57,12 @@ def run_sql(session_id: str, sql: str) -> list[dict] | dict:
     Returns up to 200 rows as a list of dicts.
     Raises a descriptive error dict if the query contains mutation keywords.
     """
-    import duckdb
 
     if _FORBIDDEN_SQL.search(sql):
         return {"error": "Only SELECT queries are allowed. Mutation keywords detected."}
 
     with session_db_lock(session_id):
-        con = duckdb.connect(str(_db_path(session_id)), read_only=True)
+        con = duckdb_connect(str(_db_path(session_id)), read_only=True)
         try:
             result_df = con.execute(sql).df()
             return json.loads(
@@ -164,7 +162,6 @@ def get_sample_rows(
         where_clause: SQL WHERE condition *without* the WHERE keyword.
                       Example: "email NOT LIKE '%@%'"
     """
-    import duckdb
 
     n = min(int(n), 50)
 
@@ -172,7 +169,7 @@ def get_sample_rows(
         return {"error": "Mutation keywords not allowed in WHERE clause"}
 
     with session_db_lock(session_id):
-        con = duckdb.connect(str(_db_path(session_id)), read_only=True)
+        con = duckdb_connect(str(_db_path(session_id)), read_only=True)
         try:
             if where_clause:
                 sql = f"SELECT * FROM working_data WHERE {where_clause} LIMIT {n}"

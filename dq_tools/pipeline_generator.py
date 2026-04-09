@@ -447,15 +447,14 @@ def _export_cleaned_parquet(session_id: str, out_path: Path) -> bool:
 
     Returns True if successful, False if the database does not exist.
     """
-    import duckdb
 
-    from dq_tools.db import session_db_lock
+    from dq_tools.db import duckdb_connect, session_db_lock
 
     db = _find_project_root() / "data" / "sessions" / session_id / "working.duckdb"
     if not db.exists():
         return False
     with session_db_lock(session_id):
-        con = duckdb.connect(str(db), read_only=True)
+        con = duckdb_connect(str(db), read_only=True)
         try:
             df = con.execute("SELECT * FROM working_data").fetchdf()
         finally:

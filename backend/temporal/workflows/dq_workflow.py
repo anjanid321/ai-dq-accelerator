@@ -454,6 +454,7 @@ class DQAcceleratorWorkflow:
             pre_step_score = self.current_score
 
             # 3. Custom step: generate code
+            prior_context: str = ""  # defined here so post-apply escalation can reference it
             if step.get("type") == "custom":
                 prior_context = ", ".join(
                     f"{s['id']} ({s.get('type', '?')} on {s.get('column', '?')}): {s.get('actual_score_delta', 0):+.1%}"
@@ -756,21 +757,55 @@ class DQAcceleratorWorkflow:
                             "depends_on": [step["id"]],
                         }
                         steps.insert(i + 1, corrective)
-                elif resolved["action"] == "provide_instruction" and resolved.get(
-                    "modified_params"
-                ):
-                    # User edited params — insert a corrective step with new params
-                    corrective = {
-                        **resolved["modified_params"],
-                        "id": f"{step['id']}_user_edit",
-                        "type": step.get("type", ""),
-                        "status": "pending",
-                        "rationale": resolved.get("instruction")
-                        or f"User-edited correction for {step['id']}",
-                        "targets_rules": step.get("targets_rules", []),
-                        "projected_score_delta": step.get("projected_score_delta", 0.0),
-                    }
-                    steps.insert(i + 1, corrective)
+                elif resolved["action"] == "provide_instruction":
+                    _instruction = resolved.get("instruction") or ""
+                    _modified_params = resolved.get("modified_params")
+                    if step.get("type") == "custom" and _instruction:
+                        # Regenerate the custom code with the user's instruction
+                        try:
+                            regen = await workflow.execute_activity(
+                                generate_custom_code_activity,
+                                {
+                                    "session_id": self.session_id,
+                                    "step": step,
+                                    "prior_context": prior_context,
+                                    "human_instruction": _instruction,
+                                },
+                                start_to_close_timeout=AI_ACTIVITY_TIMEOUT,
+                                retry_policy=ACTIVITY_RETRY,
+                            )
+                            corrective = {
+                                **step,
+                                "id": f"{step['id']}_regen",
+                                "status": "pending",
+                                "custom_code": regen.get("custom_code"),
+                                "rationale": _instruction,
+                                "depends_on": [step["id"]],
+                            }
+                            steps.insert(i + 1, corrective)
+                        except Exception:
+                            pass  # leave step as applied, don't crash the plan
+                    elif _modified_params:
+                        # User edited params — insert a corrective step with new params
+                        corrective = {
+                            **_modified_params,
+                            "id": f"{step['id']}_user_edit",
+                            "type": step.get("type", ""),
+                            "status": "pending",
+                            "rationale": _instruction or f"User-edited correction for {step['id']}",
+                            "targets_rules": step.get("targets_rules", []),
+                            "projected_score_delta": step.get("projected_score_delta", 0.0),
+                        }
+                        steps.insert(i + 1, corrective)
+                    elif _instruction:
+                        # Instruction only for non-custom step — insert same step with instruction
+                        corrective = {
+                            **step,
+                            "id": f"{step['id']}_user_retry",
+                            "status": "pending",
+                            "rationale": _instruction,
+                        }
+                        steps.insert(i + 1, corrective)
 
             # 8. Mark applied
             steps[i]["status"] = "applied"

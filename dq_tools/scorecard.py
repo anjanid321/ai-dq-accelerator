@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from dq_tools.db import session_db_lock
+from dq_tools.db import duckdb_connect, session_db_lock
 from dq_tools.rule_engine import run_rules
 from dq_tools.transformation_executor import load_transformation_log
 
@@ -97,13 +97,12 @@ def compute_full(session_id: str, approved_rules: list[dict]) -> dict:
     original_rows: int | None = profile.get("row_count")
 
     # Current row count from current validation results
-    import duckdb
 
     db_path = _session_dir(session_id) / "working.duckdb"
     current_rows: int = 0
     if db_path.exists():
         with session_db_lock(session_id):
-            con = duckdb.connect(str(db_path))
+            con = duckdb_connect(str(db_path))
             try:
                 current_rows = con.execute("SELECT COUNT(*) FROM working_data").fetchone()[0]
             except Exception:

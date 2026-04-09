@@ -16,9 +16,8 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-import duckdb
 import yaml
-from dq_tools.db import session_db_lock
+from dq_tools.db import duckdb_connect, session_db_lock
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +292,7 @@ def run_rules(session_id: str, rules: list[dict]) -> dict:
     # DuckDB SQL for failure counts, rates, and sample rows
     # (checks.yml above is the portable Soda artifact; we use SQL for live scoring)
     with session_db_lock(session_id):
-        con = duckdb.connect(str(db))
+        con = duckdb_connect(str(db))
         try:
             total_rows_row = con.execute("SELECT COUNT(*) FROM working_data").fetchone()
             total_rows = total_rows_row[0] if total_rows_row else 0

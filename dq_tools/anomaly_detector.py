@@ -10,9 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import duckdb
 import pandas as pd
-from dq_tools.db import session_db_lock
+from dq_tools.db import duckdb_connect, session_db_lock
 
 
 def _find_project_root() -> Path:
@@ -131,7 +130,7 @@ def detect(
 
     db = _db_path(session_id)
     with session_db_lock(session_id):
-        con = duckdb.connect(str(db))
+        con = duckdb_connect(str(db))
         try:
             df: pd.DataFrame = con.execute("SELECT * FROM working_data").fetchdf()
         finally:
