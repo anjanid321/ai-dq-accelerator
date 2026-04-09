@@ -291,8 +291,17 @@ Your findings feed directly into the data passport and rule proposals.""",
             elif isinstance(result, list):
                 preview = f"{len(result)} rows"
             elif isinstance(result, dict):
-                top_keys = list(result.keys())[:4]
-                preview = "{" + ", ".join(f"{k}: ..." for k in top_keys) + "}"
+                parts = []
+                for k in list(result.keys())[:5]:
+                    v = result[k]
+                    if isinstance(v, list):
+                        v_str = f"[{len(v)} items]"
+                    elif isinstance(v, dict):
+                        v_str = "{...}"
+                    else:
+                        v_str = str(v)[:25]
+                    parts.append(f"{k}: {v_str}")
+                preview = "  ".join(parts)
             else:
                 preview = result_str[:80]
 
