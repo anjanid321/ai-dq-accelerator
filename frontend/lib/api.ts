@@ -100,11 +100,12 @@ export async function approvePlan(
 export async function resolveEscalation(
   sessionId: string,
   action: string,
-  instruction?: string
+  instruction?: string,
+  modifiedParams?: Record<string, unknown>
 ): Promise<{ accepted: boolean; message: string }> {
   return request(`/api/v1/sessions/${sessionId}/execution/resolve`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, instruction }),
+    body: JSON.stringify({ action, instruction, modified_params: modifiedParams }),
   })
 }

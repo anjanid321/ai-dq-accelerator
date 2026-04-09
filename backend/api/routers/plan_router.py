@@ -1,4 +1,5 @@
 """Plan approval and execution escalation endpoints."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
@@ -42,7 +43,11 @@ async def resolve_escalation(session_id: str, body: EscalationResolveRequest, re
         handle = client.get_workflow_handle(session_id)
         await handle.signal(
             "resolve_escalation",
-            {"action": body.action, "instruction": body.instruction},
+            {
+                "action": body.action,
+                "instruction": body.instruction,
+                "modified_params": body.modified_params,
+            },
         )
     except RPCError as e:
         if e.status == RPCStatusCode.NOT_FOUND:

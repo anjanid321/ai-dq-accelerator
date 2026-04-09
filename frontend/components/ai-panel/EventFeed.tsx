@@ -30,7 +30,11 @@ export function EventFeed({ events }: { events: AIEvent[] }) {
           </div>
           {ev.event === 'thinking'
             ? <p className="text-[10px] text-text-secondary italic leading-relaxed">{String(ev.content ?? ev.text ?? '')}</p>
-            : <pre className="text-[10px] font-mono text-text-muted leading-relaxed whitespace-pre-wrap">{JSON.stringify(ev.params ?? ev.result ?? ev.output ?? {}, null, 0).replace(/[{}]/g, '').trim()}</pre>
+            : ev.event === 'tool_call'
+                ? <pre className="text-[10px] font-mono text-text-muted leading-relaxed whitespace-pre-wrap">{JSON.stringify(ev.input ?? ev.params ?? {}, null, 0).replace(/[{}]/g, '').trim()}</pre>
+                : ev.event === 'tool_result'
+                    ? <pre className="text-[10px] font-mono text-text-muted leading-relaxed whitespace-pre-wrap">{'preview' in ev ? String(ev.preview) : ''}</pre>
+                    : <pre className="text-[10px] font-mono text-text-muted leading-relaxed whitespace-pre-wrap">{JSON.stringify(ev.params ?? ev.result ?? ev.output ?? {}, null, 0).replace(/[{}]/g, '').trim()}</pre>
           }
         </div>
       ))}

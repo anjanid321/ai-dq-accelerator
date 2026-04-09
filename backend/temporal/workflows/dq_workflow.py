@@ -1,8 +1,8 @@
 """DQAcceleratorWorkflow — main Temporal workflow for the DQ Accelerator."""
+
 from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-import asyncio
 
 # Import activities with sandbox-safe pattern
 with workflow.unsafe.imports_passed_through():
@@ -14,13 +14,13 @@ with workflow.unsafe.imports_passed_through():
         analyze_and_prioritize_activity,
     )
     from backend.temporal.activities.transform_activities import (
-        suggest_next_transformation_activity,
         preview_transformation_activity,
         apply_transformation_activity,
         update_scorecard_activity,
         generate_scorecard_summary_activity,
         plan_transforms_activity,
         generate_custom_code_activity,
+        verify_transform_activity,
     )
     from backend.temporal.activities.pipeline_activities import (
         generate_pipeline_activity,
@@ -32,6 +32,7 @@ with workflow.unsafe.imports_passed_through():
 ACTIVITY_RETRY = RetryPolicy(maximum_attempts=3, initial_interval=timedelta(seconds=2))
 ACTIVITY_TIMEOUT = timedelta(minutes=10)
 AI_ACTIVITY_TIMEOUT = timedelta(minutes=60)
+
 
 @workflow.defn
 class DQAcceleratorWorkflow:
@@ -53,7 +54,7 @@ class DQAcceleratorWorkflow:
 
         # Validation state
         self.validation_results: dict = {}
-        self.anomaly_summary: dict = {}   # lightweight summary only; full report lives on disk
+        self.anomaly_summary: dict = {}  # lightweight summary only; full report lives on disk
         self.validation_summary: str = ""
         self.anomaly_narrative: str = ""
         self.transformation_queue: list = []
@@ -72,10 +73,10 @@ class DQAcceleratorWorkflow:
         self.triage_amendments: dict | None = None  # None until approve_triage signal received
 
         # Plan state
-        self.transform_plan: dict | None = None   # {steps, summary, projected_final_score}
-        self.plan_decision: dict | None = None     # staging: set by approve_plan signal
+        self.transform_plan: dict | None = None  # {steps, summary, projected_final_score}
+        self.plan_decision: dict | None = None  # staging: set by approve_plan signal
         self.execution_escalation: dict | None = None  # current issue awaiting human
-        self.escalation_decision: dict | None = None   # staging: set by resolve_escalation signal
+        self.escalation_decision: dict | None = None  # staging: set by resolve_escalation signal
         self.provide_instruction_attempts: int = 0
 
         # Scorecard state
@@ -94,9 +95,13 @@ class DQAcceleratorWorkflow:
         self.approved_rules = rules
 
     @workflow.signal
-    def decide_transformation(self, tid: str, approved: bool, modification: dict | None = None) -> None:
+    def decide_transformation(
+        self, tid: str, approved: bool, modification: dict | None = None
+    ) -> None:
         # Deprecated: no-op in holistic planning mode. plan/approve replaces this.
-        workflow.logger.warning("decide_transformation signal received but ignored in holistic planning mode")
+        workflow.logger.warning(
+            "decide_transformation signal received but ignored in holistic planning mode"
+        )
 
     @workflow.signal
     def approve_triage(self, amendments: dict) -> None:
@@ -182,12 +187,16 @@ class DQAcceleratorWorkflow:
                     {**r, "sample_failing_rows": r.get("sample_failing_rows", [])[:5]}
                     for r in self.validation_results.get("per_rule", [])
                 ],
-            } if self.validation_results else {},
+            }
+            if self.validation_results
+            else {},
         }
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 
-    async def _escalate(self, step: dict, escalation_type: str, description: str, context: dict) -> dict:
+    async def _escalate(
+        self, step: dict, escalation_type: str, description: str, context: dict
+    ) -> dict:
         """Set escalation state, wait for human decision, return decision dict."""
         self.execution_escalation = {
             "type": escalation_type,
@@ -198,6 +207,7 @@ class DQAcceleratorWorkflow:
         self.stage = "AWAITING_HUMAN_INPUT"
         await workflow.wait_condition(lambda: self.escalation_decision is not None)
         decision = self.escalation_decision
+        assert decision is not None  # guaranteed by wait_condition
         self.escalation_decision = None
         self.execution_escalation = None
         self.stage = "TRANSFORMATION_LOOP"
@@ -216,7 +226,11 @@ class DQAcceleratorWorkflow:
         self.stage = "LOADING"
         await workflow.execute_activity(
             load_dataset_activity,
-            {"session_id": self.session_id, "file_path": params["file_path"], "file_ext": params["file_ext"]},
+            {
+                "session_id": self.session_id,
+                "file_path": params["file_path"],
+                "file_ext": params["file_ext"],
+            },
             start_to_close_timeout=ACTIVITY_TIMEOUT,
             retry_policy=ACTIVITY_RETRY,
         )
@@ -285,8 +299,7 @@ class DQAcceleratorWorkflow:
 
         # Only triage if there are failing rules to classify
         failing_rules = [
-            r for r in self.validation_results.get("per_rule", [])
-            if not r.get("passed", True)
+            r for r in self.validation_results.get("per_rule", []) if not r.get("passed", True)
         ]
 
         if failing_rules:
@@ -325,7 +338,7 @@ class DQAcceleratorWorkflow:
 
             if threshold_changes or rejected_ids:
                 updated_rules = []
-                for rule in (self.approved_rules or []):
+                for rule in self.approved_rules or []:
                     if rule["id"] in rejected_ids:
                         continue
                     if rule["id"] in threshold_changes:
@@ -352,8 +365,7 @@ class DQAcceleratorWorkflow:
         fixable_rules = [
             {**per_rule_by_id[c["rule_id"]], "triage": c}
             for c in self.triage_result.get("classifications", [])
-            if c.get("classification") == "transform_fixable"
-            and c["rule_id"] in per_rule_by_id
+            if c.get("classification") == "transform_fixable" and c["rule_id"] in per_rule_by_id
         ]
 
         plan_result = await workflow.execute_activity(
@@ -370,6 +382,32 @@ class DQAcceleratorWorkflow:
             retry_policy=ACTIVITY_RETRY,
         )
         self.transform_plan = plan_result
+
+        # Replace Claude's estimated projected_score_delta with formula-based values
+        for step in plan_result.get("steps", []):
+            if step.get("type") == "custom":
+                continue  # custom steps have no code yet — keep Claude's estimate
+            try:
+                spec = {
+                    **(step.get("params") or {}),
+                    "id": step.get("id", ""),
+                    "type": step.get("type", ""),
+                }
+                preview = await workflow.execute_activity(
+                    preview_transformation_activity,
+                    {
+                        "session_id": self.session_id,
+                        "transformation_spec": spec,
+                        "approved_rules": self.approved_rules,
+                    },
+                    start_to_close_timeout=ACTIVITY_TIMEOUT,
+                    retry_policy=ACTIVITY_RETRY,
+                )
+                formula_delta = preview.get("projected_score_delta")
+                if formula_delta is not None:
+                    step["projected_score_delta"] = formula_delta
+            except Exception:
+                pass  # keep Claude's estimate if preview fails
 
         # ── Stage: AWAITING_PLAN_APPROVAL ──────────────────────────────────
         self.stage = "AWAITING_PLAN_APPROVAL"
@@ -388,25 +426,39 @@ class DQAcceleratorWorkflow:
         for i, step in enumerate(steps):
             # 1. Dependency check
             dep_statuses = {s["id"]: s.get("status", "pending") for s in steps}
-            failed_deps = [d for d in step.get("depends_on", []) if dep_statuses.get(d) in ("failed", "skipped")]
+            failed_deps = [
+                d
+                for d in step.get("depends_on", [])
+                if dep_statuses.get(d) in ("failed", "skipped")
+            ]
             if failed_deps:
                 steps[i]["status"] = "skipped"
-                self.transformation_log.append({
-                    "id": step["id"], "type": step.get("type", ""), "params": step.get("params", {}),
-                    "affected_rows": 0, "score_delta": 0, "status": "skipped",
-                    "rationale": f"Dependency skipped/failed: {failed_deps}", "regressions": [],
-                })
+                self.transformation_log.append(
+                    {
+                        "id": step["id"],
+                        "type": step.get("type", ""),
+                        "params": step.get("params", {}),
+                        "affected_rows": 0,
+                        "score_delta": 0,
+                        "status": "skipped",
+                        "rationale": f"Dependency skipped/failed: {failed_deps}",
+                        "regressions": [],
+                    }
+                )
                 continue
 
             # 2. Pre-step snapshot
-            pre_step_passing = {r["id"] for r in self.validation_results.get("per_rule", []) if r.get("passed")}
+            pre_step_passing = {
+                r["id"] for r in self.validation_results.get("per_rule", []) if r.get("passed")
+            }
             pre_step_score = self.current_score
 
             # 3. Custom step: generate code
             if step.get("type") == "custom":
                 prior_context = ", ".join(
                     f"{s['id']} ({s.get('type', '?')} on {s.get('column', '?')}): {s.get('actual_score_delta', 0):+.1%}"
-                    for s in steps[:i] if s.get("status") == "applied"
+                    for s in steps[:i]
+                    if s.get("status") == "applied"
                 )
                 self.provide_instruction_attempts = 0
                 code_result = await workflow.execute_activity(
@@ -423,7 +475,8 @@ class DQAcceleratorWorkflow:
                 if not code_result.get("validation_passed"):
                     # Escalate: code generation failed
                     resolved = await self._escalate(
-                        step, "code_generation_failed",
+                        step,
+                        "code_generation_failed",
                         f"Code generation failed for {step['id']}",
                         {"last_error": "Validation failed after 3 attempts"},
                     )
@@ -432,13 +485,22 @@ class DQAcceleratorWorkflow:
                         break
                     elif resolved["action"] == "skip_step":
                         steps[i]["status"] = "failed"
-                        self.transformation_log.append({
-                            "id": step["id"], "type": step.get("type", ""), "params": step.get("params", {}),
-                            "affected_rows": 0, "score_delta": 0, "status": "failed",
-                            "rationale": "Code generation failed — skipped by engineer", "regressions": [],
-                        })
+                        self.transformation_log.append(
+                            {
+                                "id": step["id"],
+                                "type": step.get("type", ""),
+                                "params": step.get("params", {}),
+                                "affected_rows": 0,
+                                "score_delta": 0,
+                                "status": "failed",
+                                "rationale": "Code generation failed — skipped by engineer",
+                                "regressions": [],
+                            }
+                        )
                         continue
                     elif resolved["action"] == "provide_instruction":
+                        if resolved.get("modified_params"):
+                            steps[i]["params"] = resolved["modified_params"]
                         # Retry with human instruction (up to 2 retries)
                         succeeded = False
                         while self.provide_instruction_attempts < 2:
@@ -461,7 +523,8 @@ class DQAcceleratorWorkflow:
                             # Still failed — escalate again
                             if self.provide_instruction_attempts < 2:
                                 resolved = await self._escalate(
-                                    step, "code_generation_failed",
+                                    step,
+                                    "code_generation_failed",
                                     f"Code generation still failing (attempt {self.provide_instruction_attempts})",
                                     {"last_error": "Validation failed"},
                                 )
@@ -469,11 +532,18 @@ class DQAcceleratorWorkflow:
                                     break
                         if not succeeded:
                             steps[i]["status"] = "failed"
-                            self.transformation_log.append({
-                                "id": step["id"], "type": step.get("type", ""), "params": step.get("params", {}),
-                                "affected_rows": 0, "score_delta": 0, "status": "failed",
-                                "rationale": "Code generation exhausted retries — auto-skipped", "regressions": [],
-                            })
+                            self.transformation_log.append(
+                                {
+                                    "id": step["id"],
+                                    "type": step.get("type", ""),
+                                    "params": step.get("params", {}),
+                                    "affected_rows": 0,
+                                    "score_delta": 0,
+                                    "status": "failed",
+                                    "rationale": "Code generation exhausted retries — auto-skipped",
+                                    "regressions": [],
+                                }
+                            )
                             continue
                 steps[i]["custom_code"] = code_result.get("custom_code")
 
@@ -485,6 +555,26 @@ class DQAcceleratorWorkflow:
                 "custom_code": steps[i].get("custom_code"),
                 "rationale": step.get("rationale", ""),
             }
+
+            # 4a. Capture before/after preview snapshot
+            try:
+                step_preview = await workflow.execute_activity(
+                    preview_transformation_activity,
+                    {
+                        "session_id": self.session_id,
+                        "transformation_spec": transformation_spec,
+                        "approved_rules": self.approved_rules,
+                    },
+                    start_to_close_timeout=ACTIVITY_TIMEOUT,
+                    retry_policy=ACTIVITY_RETRY,
+                )
+                steps[i]["before_sample"] = step_preview.get("before_sample", [])
+                steps[i]["after_sample"] = step_preview.get("after_sample", [])
+                steps[i]["affected_row_count"] = step_preview.get("affected_row_count", 0)
+            except Exception:
+                pass  # non-fatal — missing preview is fine
+
+            apply_result: dict = {}
             try:
                 apply_result = await workflow.execute_activity(
                     apply_transformation_activity,
@@ -494,19 +584,62 @@ class DQAcceleratorWorkflow:
                 )
             except Exception as exc:
                 resolved = await self._escalate(
-                    step, "step_failed", f"Apply failed for {step['id']}", {"last_error": str(exc)},
+                    step,
+                    "step_failed",
+                    f"Apply failed for {step['id']}",
+                    {"last_error": str(exc)},
                 )
                 if resolved["action"] == "abort_plan":
                     steps[i]["status"] = "failed"
                     break
                 elif resolved["action"] == "skip_step":
                     steps[i]["status"] = "failed"
-                    self.transformation_log.append({
-                        "id": step["id"], "type": step.get("type", ""), "params": step.get("params", {}),
-                        "affected_rows": 0, "score_delta": 0, "status": "failed",
-                        "rationale": f"Apply threw error — skipped: {exc}", "regressions": [],
-                    })
+                    self.transformation_log.append(
+                        {
+                            "id": step["id"],
+                            "type": step.get("type", ""),
+                            "params": step.get("params", {}),
+                            "affected_rows": 0,
+                            "score_delta": 0,
+                            "status": "failed",
+                            "rationale": f"Apply threw error — skipped: {exc}",
+                            "regressions": [],
+                        }
+                    )
                     continue
+                elif resolved["action"] == "provide_instruction":
+                    if resolved.get("modified_params"):
+                        steps[i]["params"] = resolved["modified_params"]
+                        transformation_spec = {
+                            **resolved["modified_params"],
+                            "id": step.get("id", ""),
+                            "type": step.get("type", ""),
+                        }
+                    try:
+                        apply_result = await workflow.execute_activity(
+                            apply_transformation_activity,
+                            {
+                                "session_id": self.session_id,
+                                "transformation_spec": transformation_spec,
+                            },
+                            start_to_close_timeout=ACTIVITY_TIMEOUT,
+                            retry_policy=ACTIVITY_RETRY,
+                        )
+                    except Exception:
+                        steps[i]["status"] = "failed"
+                        self.transformation_log.append(
+                            {
+                                "id": step["id"],
+                                "type": step.get("type", ""),
+                                "params": step.get("params", {}),
+                                "affected_rows": 0,
+                                "score_delta": 0,
+                                "status": "failed",
+                                "rationale": "Apply failed after user retry — skipped",
+                                "regressions": [],
+                            }
+                        )
+                        continue
 
             # 5. Update scorecard
             scorecard_result = await workflow.execute_activity(
@@ -521,22 +654,30 @@ class DQAcceleratorWorkflow:
             new_per_rule = scorecard_result.get("per_rule", [])
             self.validation_results = {
                 "per_rule": new_per_rule or self.validation_results.get("per_rule", []),
-                "category_scores": scorecard_result.get("category_scores", self.validation_results.get("category_scores", {})),
+                "category_scores": scorecard_result.get(
+                    "category_scores", self.validation_results.get("category_scores", {})
+                ),
                 "baseline_quality_score": self.baseline_quality_score,
             }
 
             # 6. Detect regressions (only rules NOT in targets_rules that newly failed)
             targets = set(step.get("targets_rules", []))
-            new_passing = {r["id"] for r in new_per_rule if r.get("passed")}
+            {r["id"] for r in new_per_rule if r.get("passed")}
             regressions_raw = [
-                r for r in new_per_rule
+                r
+                for r in new_per_rule
                 if r.get("id") in pre_step_passing
                 and not r.get("passed")
                 and r.get("id") not in targets
             ]
             regressions = [
-                {"rule_id": r.get("id"), "column": r.get("column"), "check": r.get("check"),
-                 "failure_count": r.get("failure_count", 0), "rationale": (r.get("rationale", "") or "")[:80]}
+                {
+                    "rule_id": r.get("id"),
+                    "column": r.get("column"),
+                    "check": r.get("check"),
+                    "failure_count": r.get("failure_count", 0),
+                    "rationale": (r.get("rationale", "") or "")[:80],
+                }
                 for r in regressions_raw
             ]
 
@@ -548,19 +689,88 @@ class DQAcceleratorWorkflow:
 
             if regressions:
                 escalation_type = "regression"
-                escalation_desc = f"Step {step['id']} caused {len(regressions)} unexpected regression(s)"
+                escalation_desc = (
+                    f"Step {step['id']} caused {len(regressions)} unexpected regression(s)"
+                )
                 escalation_context = {"regressed_rule_ids": [r["rule_id"] for r in regressions]}
             elif projected > 0.02 and actual_score_delta < projected * 0.3:
                 escalation_type = "divergence"
                 escalation_desc = f"Step {step['id']} produced much less improvement than expected"
                 escalation_context = {"projected": projected, "actual": actual_score_delta}
 
+            # 7b. Agent verification (only when no numeric escalation detected)
+            if (
+                escalation_type is None
+                and steps[i].get("before_sample")
+                and steps[i].get("after_sample")
+            ):
+                try:
+                    verify_result = await workflow.execute_activity(
+                        verify_transform_activity,
+                        {
+                            "step": step,
+                            "before_sample": steps[i].get("before_sample", []),
+                            "after_sample": steps[i].get("after_sample", []),
+                            "actual_score_delta": actual_score_delta,
+                            "targeted_rules": [
+                                r
+                                for r in self.validation_results.get("per_rule", [])
+                                if r.get("id") in set(step.get("targets_rules", []))
+                            ],
+                        },
+                        start_to_close_timeout=ACTIVITY_TIMEOUT,
+                        retry_policy=ACTIVITY_RETRY,
+                    )
+                    if verify_result.get("verdict") == "incorrect":
+                        escalation_type = "transform_verification_failed"
+                        escalation_desc = verify_result.get(
+                            "explanation", "Transform did not achieve expected outcome"
+                        )
+                        escalation_context = {
+                            "agent_suggestion": verify_result.get("suggestion"),
+                            "before_sample": steps[i].get("before_sample", []),
+                            "after_sample": steps[i].get("after_sample", []),
+                        }
+                except Exception:
+                    pass  # non-fatal — skip verification on error
+
             if escalation_type:
-                resolved = await self._escalate(step, escalation_type, escalation_desc, escalation_context)
+                resolved = await self._escalate(
+                    step, escalation_type, escalation_desc, escalation_context
+                )
                 if resolved["action"] == "abort_plan":
                     steps[i]["status"] = "applied"
                     steps[i]["actual_score_delta"] = actual_score_delta
                     break
+                elif resolved["action"] == "apply_suggestion":
+                    suggestion = escalation_context.get("agent_suggestion") or resolved.get(
+                        "suggestion"
+                    )
+                    if suggestion and isinstance(suggestion, dict):
+                        corrective = {
+                            **suggestion,
+                            "id": f"{step['id']}_correction",
+                            "status": "pending",
+                            "rationale": f"Agent-suggested correction for {step['id']}",
+                            "targets_rules": step.get("targets_rules", []),
+                            "depends_on": [step["id"]],
+                        }
+                        steps.insert(i + 1, corrective)
+                elif resolved["action"] == "provide_instruction" and resolved.get(
+                    "modified_params"
+                ):
+                    # User edited params — insert a corrective step with new params
+                    corrective = {
+                        **resolved["modified_params"],
+                        "id": f"{step['id']}_user_edit",
+                        "type": step.get("type", ""),
+                        "status": "pending",
+                        "rationale": resolved.get("instruction")
+                        or f"User-edited correction for {step['id']}",
+                        "targets_rules": step.get("targets_rules", []),
+                        "projected_score_delta": step.get("projected_score_delta", 0.0),
+                    }
+                    steps.insert(i + 1, corrective)
 
             # 8. Mark applied
             steps[i]["status"] = "applied"
@@ -570,21 +780,22 @@ class DQAcceleratorWorkflow:
             affected_rows = apply_result.get("affected_rows", 0)
             # Capture per-rule state after this step (truncate sample rows to save space)
             post_step_per_rule = [
-                {k: v for k, v in r.items() if k != "sample_failing_rows"}
-                for r in new_per_rule
+                {k: v for k, v in r.items() if k != "sample_failing_rows"} for r in new_per_rule
             ]
-            self.transformation_log.append({
-                "id": step["id"],
-                "type": step.get("type", ""),
-                "params": step.get("params", {}),
-                "affected_rows": affected_rows,
-                "score_delta": actual_score_delta,
-                "status": "applied" if affected_rows > 0 else "no_effect",
-                "custom_code": steps[i].get("custom_code"),
-                "rationale": step.get("rationale", ""),
-                "regressions": regressions,
-                "post_step_per_rule": post_step_per_rule,
-            })
+            self.transformation_log.append(
+                {
+                    "id": step["id"],
+                    "type": step.get("type", ""),
+                    "params": step.get("params", {}),
+                    "affected_rows": affected_rows,
+                    "score_delta": actual_score_delta,
+                    "status": "applied" if affected_rows > 0 else "no_effect",
+                    "custom_code": steps[i].get("custom_code"),
+                    "rationale": step.get("rationale", ""),
+                    "regressions": regressions,
+                    "post_step_per_rule": post_step_per_rule,
+                }
+            )
 
         # Update plan steps with final statuses
         if self.transform_plan:

@@ -203,6 +203,8 @@ async def stream_investigation_progress(session_id: str):
         max_wait = 600  # give up after 10 minutes with no activity
         idle = 0
         last_send = 0.0
+        POST_DONE_TIMEOUT = 30  # seconds to wait after a "done" before closing
+        post_done_idle = 0
 
         while idle < max_wait:
             if not progress_path.exists():
@@ -219,6 +221,7 @@ async def stream_investigation_progress(session_id: str):
             if new_lines:
                 idle = 0
                 last_send = 0
+                post_done_idle = 0  # new events arrived — reset the post-done window
                 for line in new_lines:
                     line = line.strip()
                     if not line:
@@ -228,7 +231,8 @@ async def stream_investigation_progress(session_id: str):
                     try:
                         evt = json.loads(line)
                         if evt.get("event") == "done":
-                            return
+                            post_done_idle = 0.001  # mark "seen done", start waiting
+                            # Don't return — more stages may follow.
                     except json.JSONDecodeError:
                         pass
             else:
@@ -238,6 +242,10 @@ async def stream_investigation_progress(session_id: str):
                 if last_send >= 20:
                     yield ": heartbeat\n\n"
                     last_send = 0
+                if post_done_idle > 0:
+                    post_done_idle += 0.5
+                    if post_done_idle >= POST_DONE_TIMEOUT:
+                        return  # 30s of silence after a done — session is complete
 
     return StreamingResponse(
         event_generator(),

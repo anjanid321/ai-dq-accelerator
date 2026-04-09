@@ -117,6 +117,9 @@ export interface TransformPlanStep {
   intent?: string
   target_columns?: string[]
   approach?: string
+  before_sample?: Record<string, unknown>[]
+  after_sample?: Record<string, unknown>[]
+  affected_row_count?: number
 }
 
 export interface TransformPlan {
@@ -126,7 +129,7 @@ export interface TransformPlan {
 }
 
 export interface ExecutionEscalation {
-  type: 'regression' | 'divergence' | 'step_failed' | 'code_generation_failed'
+  type: 'regression' | 'divergence' | 'step_failed' | 'code_generation_failed' | 'transform_verification_failed'
   step_id: string
   description: string
   context: Record<string, unknown>
