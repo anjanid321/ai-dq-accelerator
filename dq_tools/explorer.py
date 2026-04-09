@@ -36,7 +36,7 @@ def _load_df(session_id: str):
     """Load working_data as a pandas DataFrame (read-only connection)."""
     import duckdb
 
-    con = duckdb.connect(str(_db_path(session_id)), read_only=False)
+    con = duckdb.connect(str(_db_path(session_id)), read_only=True)
     try:
         return con.execute("SELECT * FROM working_data").df()
     finally:
@@ -60,7 +60,7 @@ def run_sql(session_id: str, sql: str) -> list[dict] | dict:
     if _FORBIDDEN_SQL.search(sql):
         return {"error": "Only SELECT queries are allowed. Mutation keywords detected."}
 
-    con = duckdb.connect(str(_db_path(session_id)), read_only=False)
+    con = duckdb.connect(str(_db_path(session_id)), read_only=True)
     try:
         result_df = con.execute(sql).df()
         return json.loads(
@@ -165,7 +165,7 @@ def get_sample_rows(
     if where_clause and _FORBIDDEN_SQL.search(where_clause):
         return {"error": "Mutation keywords not allowed in WHERE clause"}
 
-    con = duckdb.connect(str(_db_path(session_id)), read_only=False)
+    con = duckdb.connect(str(_db_path(session_id)), read_only=True)
     try:
         if where_clause:
             sql = f"SELECT * FROM working_data WHERE {where_clause} LIMIT {n}"
