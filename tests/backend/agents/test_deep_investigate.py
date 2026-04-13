@@ -184,6 +184,7 @@ def _make_state(session_id: str = "test-session") -> dict:
     return {
         "session_id": session_id,
         "use_case": "HR employee records",
+        "description": None,
         "target_column": None,
         "overview_notes": "Dataset has 5 columns including email and hire_date.",
         "columns_to_investigate": [
@@ -353,3 +354,22 @@ def test_deep_investigate_node_includes_target_column_in_message(mock_build, moc
     initial_input = call_args.args[0]
     content = initial_input["messages"][0].content
     assert "churn_label" in content
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_passes_session_context_to_stream(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import InvestigationContext, deep_investigate_node
+    mock_agent = MagicMock()
+    last_msg = MagicMock(spec=AIMessage)
+    last_msg.content = "findings"
+    last_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [last_msg]}])
+    mock_build.return_value = mock_agent
+
+    deep_investigate_node(_make_state("my-session-id"))
+
+    stream_kwargs = mock_agent.stream.call_args.kwargs
+    context = stream_kwargs["config"]["configurable"]["context"]
+    assert isinstance(context, InvestigationContext)
+    assert context.session_id == "my-session-id"
