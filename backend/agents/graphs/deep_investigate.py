@@ -160,8 +160,9 @@ def deep_investigate_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState:
     if state.get("target_column"):
         context_lines.append(f"Target column (ML label): {state['target_column']}")
 
+    context_header = "\n".join(context_lines)
     initial_message = HumanMessage(
-        content=f"""{chr(10).join(context_lines)}
+        content=f"""{context_header}
 
 Overview findings:
 {state["overview_notes"]}

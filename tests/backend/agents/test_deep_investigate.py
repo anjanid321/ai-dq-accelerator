@@ -2,7 +2,7 @@ import json
 from dataclasses import fields
 from unittest.mock import MagicMock, patch
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 
 
 # ---------------------------------------------------------------------------
@@ -299,3 +299,57 @@ def test_deep_investigate_node_clears_progress_file(mock_build, mock_emit, tmp_p
         deep_investigate_node(_make_state())
 
     assert not stale_file.exists()
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_emits_tool_call_event(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    ai_msg = MagicMock(spec=AIMessage)
+    ai_msg.content = ""
+    ai_msg.tool_calls = [{"name": "dq_run_sql", "args": {"sql": "SELECT 1"}}]
+    mock_agent.stream.return_value = iter([{"messages": [ai_msg]}])
+    mock_build.return_value = mock_agent
+
+    deep_investigate_node(_make_state())
+    tool_call_events = [c for c in mock_emit.call_args_list if c.args[1] == "tool_call"]
+    assert len(tool_call_events) == 1
+    assert tool_call_events[0].kwargs["tool"] == "dq_run_sql"
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_emits_tool_result_event(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    tool_msg = MagicMock(spec=ToolMessage)
+    tool_msg.content = '{"rows": []}'
+    tool_msg.name = "dq_run_sql"
+    mock_agent.stream.return_value = iter([{"messages": [tool_msg]}])
+    mock_build.return_value = mock_agent
+
+    deep_investigate_node(_make_state())
+    tool_result_events = [c for c in mock_emit.call_args_list if c.args[1] == "tool_result"]
+    assert len(tool_result_events) == 1
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_includes_target_column_in_message(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    last_msg = MagicMock(spec=AIMessage)
+    last_msg.content = "findings"
+    last_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [last_msg]}])
+    mock_build.return_value = mock_agent
+
+    state = _make_state()
+    state["target_column"] = "churn_label"
+    deep_investigate_node(state)
+
+    call_args = mock_agent.stream.call_args
+    initial_input = call_args.args[0]
+    content = initial_input["messages"][0].content
+    assert "churn_label" in content
