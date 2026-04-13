@@ -27,6 +27,7 @@ from backend.agents.prompts import (
     RULE_PROPOSER_SYSTEM,
 )
 from backend.agents.state import ProfileAnalyzerState
+from backend.agents.graphs.deep_investigate import deep_investigate_node
 from dq_tools.explorer import (
     EXPLORER_TOOLS,
     check_regex_pattern,
@@ -202,9 +203,13 @@ def _progress_path(session_id: str) -> Path:
 
 
 
-def investigate_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState:
+# DEPRECATED — kept for rollback only. No logic changes made.
+# To revert: replace `deep_investigate_node` with `_investigate_node_deprecated`
+# in the single graph.add_node call in build_profile_analyzer_graph().
+def _investigate_node_deprecated(state: ProfileAnalyzerState) -> ProfileAnalyzerState:
     """
-    Tool-calling loop, Claude investigates the data until it is satisfied
+    Tool-calling loop, Claude investigates the data until it is satisfied.
+    DEPRECATED: use deep_investigate_node from deep_investigate.py instead.
     """
     import anthropic
 
@@ -479,7 +484,7 @@ def build_profile_analyzer_graph():
     graph = StateGraph(ProfileAnalyzerState)
 
     graph.add_node("read_overview", read_overview_node)
-    graph.add_node("investigate", investigate_node)
+    graph.add_node("investigate", deep_investigate_node)
     graph.add_node("synthesize_understanding", synthesize_understanding_node)
     graph.add_node("propose_rules", propose_rules_node)
 
