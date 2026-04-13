@@ -2,8 +2,6 @@ import json
 from dataclasses import fields
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
