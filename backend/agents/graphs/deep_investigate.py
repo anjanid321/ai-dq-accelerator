@@ -1,7 +1,7 @@
 """Deep investigation agent for ProfileAnalyzer.
 
 Replaces the hand-rolled investigate_node with a create_deep_agent-backed
-sub-graph. Session context flows to tools via ToolRuntime[None, InvestigationContext].
+sub-graph. Session context flows to tools via ToolRuntime[InvestigationContext, None].
 
 Import surface: deep_investigate_node (the LangGraph node function).
 """
@@ -44,7 +44,7 @@ class InvestigationContext:
 
 def dq_run_sql(
     sql: Annotated[str, "Read-only SELECT query against table 'working_data'. Returns up to 200 rows."],
-    runtime: ToolRuntime[None, InvestigationContext],
+    runtime: ToolRuntime[InvestigationContext, None],
 ) -> str:
     """Run a read-only SQL SELECT query against the dataset."""
     result = _explorer.run_sql(runtime.context.session_id, sql)
@@ -55,7 +55,7 @@ def dq_get_value_counts(
     column: Annotated[str, "Column name to analyse."],
     top_n: Annotated[int, "Number of top values to return. Default 20."] = 20,
     *,
-    runtime: ToolRuntime[None, InvestigationContext],
+    runtime: ToolRuntime[InvestigationContext, None],
 ) -> str:
     """Return the top-N frequency distribution of values in a column."""
     result = _explorer.get_value_counts(runtime.context.session_id, column, top_n)
@@ -65,7 +65,7 @@ def dq_get_value_counts(
 def dq_check_regex_pattern(
     column: Annotated[str, "Column name to test."],
     pattern: Annotated[str, "Python regex pattern to match against non-null values."],
-    runtime: ToolRuntime[None, InvestigationContext],
+    runtime: ToolRuntime[InvestigationContext, None],
 ) -> str:
     """Check what percentage of non-null values in a column match a regex."""
     result = _explorer.check_regex_pattern(runtime.context.session_id, column, pattern)
@@ -79,7 +79,7 @@ def dq_get_sample_rows(
         "SQL WHERE condition without the WHERE keyword. Example: \"email NOT LIKE '%@%'\"",
     ] = None,
     *,
-    runtime: ToolRuntime[None, InvestigationContext],
+    runtime: ToolRuntime[InvestigationContext, None],
 ) -> str:
     """Return sample rows from the dataset, optionally filtered by a WHERE clause."""
     result = _explorer.get_sample_rows(runtime.context.session_id, n=n, where_clause=where_clause)
@@ -88,7 +88,7 @@ def dq_get_sample_rows(
 
 def dq_get_column_detail(
     column: Annotated[str, "Column name to retrieve full profiling stats for."],
-    runtime: ToolRuntime[None, InvestigationContext],
+    runtime: ToolRuntime[InvestigationContext, None],
 ) -> str:
     """Return full ydata-profiling statistics for a specific column."""
     result = _explorer.get_column_detail(runtime.context.session_id, column)
