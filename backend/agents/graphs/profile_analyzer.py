@@ -21,7 +21,6 @@ from backend.agents.retry import call_claude_with_retry
 from langgraph.graph import END, StateGraph
 
 from backend.agents.prompts import (
-    PROFILE_INVESTIGATION_SYSTEM,
     PROFILE_OVERVIEW_SYSTEM,
     PROFILE_SYNTHESIZE_SYSTEM,
     RULE_PROPOSER_SYSTEM,
