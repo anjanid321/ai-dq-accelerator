@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Optional
 
+from langchain_core.runnables import RunnableConfig
+
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt import ToolRuntime
 
@@ -117,7 +119,7 @@ def _build_deep_investigate_agent():
     directs the agent to use only the dq_* tools for all data access.
     """
     return create_deep_agent(
-        model=ChatAnthropic(model="claude-sonnet-4-6", max_tokens=8192),
+        model=ChatAnthropic(model="claude-sonnet-4-6", max_tokens=8192),  # pyright: ignore[reportCallIssue]
         tools=[
             dq_run_sql,
             dq_get_value_counts,
@@ -183,7 +185,7 @@ have followed all interesting threads, write up your complete findings WITHOUT
 using any more tools. Your findings feed directly into the data passport."""
     )
 
-    config = {
+    config: RunnableConfig = {
         "configurable": {"context": context},
         "recursion_limit": 120,  # ~60 tool-call rounds (agent + tools = 2 hops each)
     }
