@@ -2,6 +2,8 @@ import json
 from dataclasses import fields
 from unittest.mock import MagicMock, patch
 
+from langchain_core.messages import AIMessage
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -118,3 +120,182 @@ def test_dq_get_column_detail_passes_args(mock_gcd):
     mock_gcd.assert_called_once_with("sess-5", "age")
     assert isinstance(result, str)
     assert "mean" in json.loads(result)
+
+
+# ---------------------------------------------------------------------------
+# _build_deep_investigate_agent
+# ---------------------------------------------------------------------------
+
+@patch("backend.agents.graphs.deep_investigate.ChatAnthropic")
+@patch("backend.agents.graphs.deep_investigate.create_deep_agent")
+def test_build_agent_calls_create_deep_agent(mock_create, mock_anthropic):
+    from backend.agents.graphs.deep_investigate import _build_deep_investigate_agent
+    mock_create.return_value = MagicMock()
+    _build_deep_investigate_agent()
+    assert mock_create.called
+
+
+@patch("backend.agents.graphs.deep_investigate.ChatAnthropic")
+@patch("backend.agents.graphs.deep_investigate.create_deep_agent")
+def test_build_agent_passes_context_schema(mock_create, mock_anthropic):
+    from backend.agents.graphs.deep_investigate import (
+        InvestigationContext,
+        _build_deep_investigate_agent,
+    )
+    mock_create.return_value = MagicMock()
+    _build_deep_investigate_agent()
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs.get("context_schema") is InvestigationContext
+
+
+@patch("backend.agents.graphs.deep_investigate.ChatAnthropic")
+@patch("backend.agents.graphs.deep_investigate.create_deep_agent")
+def test_build_agent_passes_all_five_tools(mock_create, mock_anthropic):
+    from backend.agents.graphs.deep_investigate import _build_deep_investigate_agent
+    mock_create.return_value = MagicMock()
+    _build_deep_investigate_agent()
+    kwargs = mock_create.call_args.kwargs
+    tool_names = {t.__name__ for t in kwargs["tools"]}
+    assert tool_names == {
+        "dq_run_sql",
+        "dq_get_value_counts",
+        "dq_check_regex_pattern",
+        "dq_get_sample_rows",
+        "dq_get_column_detail",
+    }
+
+
+@patch("backend.agents.graphs.deep_investigate.ChatAnthropic")
+@patch("backend.agents.graphs.deep_investigate.create_deep_agent")
+def test_build_agent_passes_investigation_system_prompt(mock_create, mock_anthropic):
+    from backend.agents.graphs.deep_investigate import _build_deep_investigate_agent
+    from backend.agents.prompts import PROFILE_INVESTIGATION_SYSTEM
+    mock_create.return_value = MagicMock()
+    _build_deep_investigate_agent()
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs.get("system_prompt") == PROFILE_INVESTIGATION_SYSTEM
+
+
+# ---------------------------------------------------------------------------
+# deep_investigate_node
+# ---------------------------------------------------------------------------
+
+def _make_state(session_id: str = "test-session") -> dict:
+    return {
+        "session_id": session_id,
+        "use_case": "HR employee records",
+        "target_column": None,
+        "overview_notes": "Dataset has 5 columns including email and hire_date.",
+        "columns_to_investigate": [
+            {"column": "email", "reason": "format check"},
+            {"column": "hire_date", "reason": "date range plausibility"},
+        ],
+        "investigation_findings": "",
+        "data_passport": "",
+        "ai_summary": "",
+        "suggested_rules": [],
+        "top_issues": [],
+    }
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_extracts_findings(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    last_msg = MagicMock(spec=AIMessage)
+    last_msg.content = "email column has invalid formats in 847 rows (15%)."
+    last_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [last_msg]}])
+    mock_build.return_value = mock_agent
+
+    result = deep_investigate_node(_make_state())
+    assert result["investigation_findings"] == "email column has invalid formats in 847 rows (15%)."
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_preserves_other_state_fields(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    last_msg = MagicMock(spec=AIMessage)
+    last_msg.content = "findings"
+    last_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [last_msg]}])
+    mock_build.return_value = mock_agent
+
+    state = _make_state()
+    state["data_passport"] = "existing passport"
+    result = deep_investigate_node(state)
+    assert result["data_passport"] == "existing passport"
+    assert result["use_case"] == "HR employee records"
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_emits_done_event(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    last_msg = MagicMock(spec=AIMessage)
+    last_msg.content = "done"
+    last_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [last_msg]}])
+    mock_build.return_value = mock_agent
+
+    deep_investigate_node(_make_state())
+    done_calls = [c for c in mock_emit.call_args_list if c.args[1] == "done"]
+    assert len(done_calls) == 1
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_emits_thinking_for_ai_message(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    ai_msg = MagicMock(spec=AIMessage)
+    ai_msg.content = "I will investigate the email column first."
+    ai_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [ai_msg]}])
+    mock_build.return_value = mock_agent
+
+    deep_investigate_node(_make_state())
+    thinking_calls = [c for c in mock_emit.call_args_list if c.args[1] == "thinking"]
+    assert len(thinking_calls) >= 1
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_handles_empty_stream(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    mock_agent.stream.return_value = iter([])
+    mock_build.return_value = mock_agent
+
+    result = deep_investigate_node(_make_state())
+    assert result["investigation_findings"] == ""
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_deep_investigate_node_clears_progress_file(mock_build, mock_emit, tmp_path):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    last_msg = MagicMock(spec=AIMessage)
+    last_msg.content = "findings"
+    last_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [last_msg]}])
+    mock_build.return_value = mock_agent
+
+    # Create a stale progress file
+    session_dir = tmp_path / "data" / "sessions" / "test-session"
+    session_dir.mkdir(parents=True)
+    stale_file = session_dir / "investigation_progress.jsonl"
+    stale_file.write_text('{"event": "stale"}\n')
+
+    with patch(
+        "backend.agents.graphs.deep_investigate._find_project_root",
+        return_value=tmp_path,
+    ):
+        deep_investigate_node(_make_state())
+
+    assert not stale_file.exists()
