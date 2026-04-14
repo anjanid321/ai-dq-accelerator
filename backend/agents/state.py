@@ -1,4 +1,4 @@
-from typing import TypedDict, Any
+from typing import TypedDict
 
 
 class ProfileAnalyzerState(TypedDict):
@@ -10,8 +10,15 @@ class ProfileAnalyzerState(TypedDict):
     # Phase 1: overview
     overview_notes: str
     columns_to_investigate: list[dict]      # [{column, reason}, ...]
-    # Phase 2: investigation loop
+    # Phase 2: investigation
     investigation_findings: str             # running notes from tool-calling loop
+    # Phase 2b: cross-column analysis findings (extracted by propose_rules_node)
+    cross_column_findings: list[dict]       # [{cat_col, time_col, finding, severity}, ...]
+    # Phase 2c: structured findings extraction
+    exploration_findings: dict              # ExplorationFindings JSON
+    exploration_notebook_path: str          # absolute path to generated .ipynb
+    investigation_feedback: str | None      # user's free-form feedback message
+    investigation_round: int                # 0 = first pass, 1-2 = re-investigation rounds
     # Phase 3: synthesize
     data_passport: str                      # structured "what this data is"
     # Phase 4: rules (final outputs)

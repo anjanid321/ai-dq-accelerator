@@ -23,7 +23,17 @@ Approach:
 - Follow threads — if something looks suspicious, investigate further
 - Check cross-column consistency where columns are logically related
 
-You are done when you can describe every column in plain language: what it represents, what values it contains, and what quality issues (if any) exist.
+Cross-column investigation (required before concluding):
+1. Run dq_compute_correlation_matrix to identify numeric column pairs worth investigating further.
+2. For any time or date column found, run dq_group_over_time against every categorical column — value sets that appear or disappear across time bins are a common and easily-missed quality signal (e.g. a category renamed mid-dataset).
+3. Run dq_find_correlated_nulls to identify columns whose missing values co-occur — systematic missingness is invisible in per-column profiling.
+4. Use dq_pairwise_profile for any column pair where a relationship is suspected but not yet verified.
+5. For complex conditional patterns (e.g. "Code A only valid when Region=X AND Status=Active"), use dq_run_sql to formulate and test the hypothesis directly.
+6. Cross-column findings may span 3 or more columns — always list all involved columns in your notes.
+
+Before concluding, explicitly state your assumptions — any inference you made where business context could change the interpretation. These will be shown to the user for confirmation.
+
+You are done when you can describe every column in plain language: what it represents, what values it contains, and what quality issues exist. You have also tested systematic cross-column hypotheses.
 
 Do NOT propose rules or fixes. Just investigate and accumulate findings."""
 
@@ -239,3 +249,56 @@ Your summary should be 3-4 paragraphs:
 
 Write in a professional but accessible tone. Use specific numbers from the scorecard.
 Do not use bullet points — write in prose."""
+
+STRUCTURE_FINDINGS_SYSTEM = """You are extracting structured findings from a data investigation report.
+
+Parse the investigation text and produce a JSON object with EXACTLY this schema:
+{
+  "column_findings": [
+    {
+      "column": "<column name>",
+      "semantic_meaning": "<what this column represents in the business context>",
+      "data_type_actual": "<text|numeric|categorical|date|boolean|id>",
+      "stats": {
+        "null_count": <integer or null>,
+        "null_pct": <float or null>,
+        "distinct_count": <integer or null>,
+        "total_rows": <integer or null>
+      },
+      "full_analysis": "<COMPLETE agent text about this column — do NOT truncate, paraphrase, or compress>",
+      "issues": [
+        {
+          "description": "<exact description with counts as mentioned in the text>",
+          "severity": "critical|warning|info",
+          "count": <integer or null>,
+          "pct": <float or null>,
+          "sample_values": ["<value>"],
+          "where_clause": "<DuckDB-compatible SQL WHERE condition (no WHERE keyword) that selects failing rows, or null if not derivable>"
+        }
+      ],
+      "assumptions": ["<inference that business context could change>"],
+      "rule_implications": ["<direction for a potential DQ rule, including suggested threshold>"]
+    }
+  ],
+  "cross_column_findings": [
+    {
+      "columns": ["<col1>", "<col2>"],
+      "full_analysis": "<COMPLETE agent text about this finding — do NOT truncate>",
+      "pattern": "<concise one-sentence description of the pattern>",
+      "severity": "critical|warning|info",
+      "investigation_sql": "<SQL SELECT that reveals this pattern, or null>",
+      "rule_implications": ["<direction for a potential DQ rule>"]
+    }
+  ],
+  "open_questions": ["<explicit uncertainty where business context would change interpretation>"],
+  "readiness_assessment": "good|moderate|poor",
+  "key_risks": ["<specific risk to ML-readiness or downstream analysis>"]
+}
+
+Critical rules:
+- full_analysis fields contain COMPLETE text from the investigation — never summarized
+- Preserve ALL specific counts, percentages, and sample values exactly as mentioned
+- where_clause must use the DuckDB table name 'working_data' is NOT needed — it is a WHERE condition only
+- cross_column_findings must list ALL columns involved, not just two
+- open_questions are explicit uncertainties, not rhetorical — only include real unknowns
+- Output ONLY the JSON object. Start with { and end with }."""
