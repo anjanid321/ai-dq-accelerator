@@ -13,6 +13,9 @@ from pydantic import BaseModel, Field
 class WorkflowStage(str, Enum):
     LOADING = "LOADING"
     PROFILING = "PROFILING"
+    AWAITING_INVESTIGATION_REVIEW = "AWAITING_INVESTIGATION_REVIEW"
+    REINVESTIGATING = "REINVESTIGATING"
+    PROFILING_SYNTHESIS = "PROFILING_SYNTHESIS"
     AWAITING_RULE_APPROVAL = "AWAITING_RULE_APPROVAL"
     VALIDATING = "VALIDATING"
     TRIAGING = "TRIAGING"
@@ -234,6 +237,29 @@ class RuleApprovalRequest(BaseModel):
 class RuleApprovalResponse(BaseModel):
     accepted: bool
     message: str = "Rules approved. Validation starting."
+
+
+# ── Exploration Notebook models ───────────────────────────────────────────────
+
+
+class InvestigationFeedbackRequest(BaseModel):
+    message: str = ""
+    approve: bool = False
+
+
+class InvestigationFeedbackResponse(BaseModel):
+    accepted: bool
+    message: str = "Feedback submitted."
+    investigation_round: int = 0
+
+
+class ExplorationStateResponse(BaseModel):
+    exploration_findings: dict = {}
+    open_questions: list[str] = []
+    investigation_round: int = 0
+    notebook_ready: bool = False
+    synthesis_constrained: bool = False
+    synthesis_constraint_reasons: list[str] = []
 
 
 # ── GET /sessions/{id}/transformations/next ───────────────────────────────────
