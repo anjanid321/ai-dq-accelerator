@@ -25,7 +25,9 @@ Give the user a review point between investigation and rule proposal. The agent 
 
 After `deep_investigate_node` runs, a lightweight `structure_findings_node` (single Claude call, no tools) extracts `ExplorationFindings` JSON from the raw findings text. The notebook generator uses this structured output to render per-column and cross-column sections with full detail, then runs the notebook via `nbconvert --execute` to embed live plots. The HTML export is served inline in the browser.
 
-Re-investigation carries full context forward: `ExplorationFindings` JSON + `data_passport` + user feedback are injected into the re-investigation agent's initial message. The agent is explicitly instructed to reconcile the user's claim against its own prior evidence — not to simply defer.
+Re-investigation carries full context forward: `ExplorationFindings` JSON + raw `investigation_findings` text + user feedback are injected into the re-investigation agent's initial message. The agent is explicitly instructed to reconcile the user's claim against its own prior evidence — not to simply defer.
+
+**Raw investigation_findings is a first-class artifact.** `structure_findings_node` introduces a real fidelity risk: even with a strict "do not paraphrase" prompt, one LLM extraction pass can silently omit edge cases, over-normalize messy findings, or lose nuance. The real failure mode is not a crash — it is subtle distortion that looks fine. To mitigate this, `investigation_findings` (the raw agent text) travels alongside `ExplorationFindings` everywhere in the pipeline: the notebook renders it in a collapsible "Raw investigation notes" section, the re-investigation agent receives both, and `synthesize_and_propose_activity` receives both. `ExplorationFindings` provides structure for rendering and routing; `investigation_findings` is the authoritative record.
 
 ---
 
@@ -64,6 +66,13 @@ Both activities use `AI_ACTIVITY_TIMEOUT` (60 min).
 
 Re-investigation loop guard: `while investigation_round < 2 and not feedback.approve`. After 2 rounds the workflow proceeds to synthesis regardless.
 
+**Constrained synthesis.** There is a meaningful difference between "the user approved" and "the round limit was hit." When rounds are exhausted without explicit approval, the workflow checks `exploration_findings["readiness_assessment"]` and whether `open_questions` remain. If `readiness_assessment == "poor"` or any `open_questions` are still present, `synthesis_constrained = True` is set on workflow state and passed to `synthesize_and_propose_activity`. In that case:
+- The synthesis prompt receives a preamble: "The investigation review was not fully approved. The following questions remain unresolved: [list]. Propose rules conservatively — flag any rule whose correctness depends on an unresolved question."
+- `ai_summary` includes a visible warning about the unresolved uncertainties.
+- The proposed rules are still generated, but the user sees the constraint context at `AWAITING_RULE_APPROVAL`.
+
+`synthesis_constrained` and `synthesis_constraint_reasons` (list of unresolved open questions) are surfaced in `get_exploration` query and in `get_full_state`.
+
 ### Human-in-the-loop mechanism
 
 Split at the **Temporal level**, not inside LangGraph. LangGraph graphs remain stateless per invocation. Temporal is the durable layer; inserting a `wait_condition` between two activities loses zero context because all investigation artifacts are passed explicitly between activities.
@@ -95,6 +104,8 @@ General-purpose cross-column tool. Agent calls this when a relationship is suspe
 **`dq_compute_correlation_matrix(columns=None)`**  
 Pearson correlation across all numeric columns (or a specified subset). Returns `{col_a: {col_b: coefficient}}`. Auto-selects all numeric columns when `columns=None`, capped at 20. Used early in cross-column investigation to find which numeric pairs are worth deeper investigation.
 
+**v1 limitation.** These four tools bias toward pairwise and time-binned patterns. Truly complex multi-column conditional logic — e.g., "Code A is only valid when Region=X AND Status=Active AND EndDate is null" — is not natively discoverable by any of these tools. The agent can still find such patterns via `dq_run_sql`, but only if it formulates the right query. The system prompt mandates cross-column investigation and notes findings can span 3+ columns, but the toolset makes those findings more inferential than structurally guaranteed. This is a sound v1; comprehensive conditional multi-column coverage is future work.
+
 ### `PROFILE_INVESTIGATION_SYSTEM` prompt update
 
 After the existing per-column investigation instructions, add an explicit cross-column mandate:
@@ -106,6 +117,8 @@ After the existing per-column investigation instructions, add an explicit cross-
 ### `structure_findings_node` — `profile_analyzer.py`
 
 Single non-tool Claude call. Extraction prompt instructs explicitly: *"Preserve all specific counts, percentages, sample values, SQL results, and agent reasoning verbatim. Do not paraphrase or compress."*
+
+**Fidelity risk.** This node is a translation layer and the most likely place for silent loss of nuance. The fallback (graceful degradation to prose) handles the crash case, but the real risk is subtler: valid JSON that omits edge cases or smooths over contradictions. Mitigation: `investigation_findings` is preserved and passed alongside `ExplorationFindings` to every downstream consumer (notebook, re-investigation, synthesis). `ExplorationFindings` drives structure; `investigation_findings` is the ground truth.
 
 Produces `ExplorationFindings` with this schema:
 
@@ -208,6 +221,16 @@ and the assumption that could change this direction.
 [Note: "These are directions for review — not the final rule set"]
 ```
 
+*Appendix — Raw Investigation Notes (collapsible):*
+```
+## Appendix: Raw Investigation Notes
+[Single markdown cell with full investigation_findings text — verbatim, unedited]
+[Note: "This is the agent's unstructured output before extraction. 
+If anything in the structured sections above seems incomplete, check here."]
+```
+
+This appendix is the safety net for fidelity loss: any nuance that `structure_findings_node` failed to extract is visible to the user in the original form.
+
 Output files written to `output/sessions/{session_id}/`:
 - `exploration_notebook.ipynb` — source with executed outputs
 - `exploration_notebook.html` — self-contained HTML (base64 images, embedded CSS)
@@ -247,13 +270,25 @@ This framing gives the agent its own evidence base alongside the user's claim �
 ### `ProfileAnalyzerState` additions (`backend/agents/state.py`)
 
 ```python
-exploration_findings: dict          # ExplorationFindings JSON
-exploration_notebook_path: str      # absolute path to generated .ipynb
-investigation_feedback: str | None  # user's free-form feedback
-investigation_round: int            # 0 = first pass, 1-2 = re-investigation rounds
+exploration_findings: dict              # ExplorationFindings JSON
+exploration_notebook_path: str          # absolute path to generated .ipynb
+investigation_feedback: str | None      # user's free-form feedback
+investigation_round: int                # 0 = first pass, 1-2 = re-investigation rounds
 ```
 
 `cross_column_findings: list[dict]` (already in state, currently unpopulated) is populated by `structure_findings_node` from `exploration_findings["cross_column_findings"]`.
+
+### New workflow state fields (`dq_workflow.py`)
+
+```python
+self.investigation_findings: str = ""           # raw agent text — first-class artifact
+self.exploration_findings: dict = {}
+self.exploration_notebook_path: str = ""
+self.investigation_round: int = 0
+self.investigation_feedback: dict | None = None  # {"message": str, "approve": bool}
+self.synthesis_constrained: bool = False         # True when synthesis proceeds without approval
+self.synthesis_constraint_reasons: list = []     # unresolved open_questions at synthesis time
+```
 
 ### New Temporal signal
 
@@ -274,6 +309,8 @@ def get_exploration(self) -> dict:
         "notebook_path": self.exploration_notebook_path,
         "open_questions": self.exploration_findings.get("open_questions", []),
         "investigation_round": self.investigation_round,
+        "synthesis_constrained": self.synthesis_constrained,
+        "synthesis_constraint_reasons": self.synthesis_constraint_reasons,
     }
 ```
 
