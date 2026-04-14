@@ -186,7 +186,6 @@ using any more tools. Your findings feed directly into the data passport."""
     )
 
     config: RunnableConfig = {
-        "configurable": {"context": context},
         "recursion_limit": 120,  # ~60 tool-call rounds (agent + tools = 2 hops each)
     }
 
@@ -198,6 +197,7 @@ using any more tools. Your findings feed directly into the data passport."""
     for chunk in agent.stream(
         {"messages": [initial_message]},
         config=config,
+        context=context,
         stream_mode="values",
     ):
         messages = chunk.get("messages", [])

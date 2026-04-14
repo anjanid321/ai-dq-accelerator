@@ -134,8 +134,12 @@ Rules:
 
 Pre-built library — exact params schemas (use these exactly, do not invent keys):
 
-  date_format_cast   — {"columns": ["col"], "from_format": "%m/%d/%Y"}
-  null_invalid       — {"column": "col", "pattern": "regex_pattern"}
+  date_format_cast   — single format:   {"columns": ["col"], "from_format": "%m/%d/%Y"}
+                     OR multiple formats: {"columns": ["col"], "source_formats": ["%Y/%m/%d", "%m/%d/%Y", "%B %-d, %Y"], "target_format": "%Y-%m-%d"}
+                     Use source_formats (list) when data has mixed date formats — tried in order until a value parses.
+  null_invalid       — {"column": "col", "pattern": "regex_pattern"}  ← nulls values NOT matching pattern
+                     OR {"column": "col", "sentinel_values": ["nan", "N/A", "none", "NULL"]}  ← nulls specific bad strings
+                     OR both combined: {"column": "col", "pattern": "...", "sentinel_values": ["nan"]}
   filter_rows        — {"column": "col", "operator": "eq|ne|in|not_in|lt|gt|lte|gte", "value": ...}
   winsorize          — {"column": "col", "percentile": 0.99}  OR  {"column": "col", "cap_value": 1000}
   impute_constant    — {"column": "col", "value": 0}

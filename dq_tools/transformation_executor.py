@@ -93,23 +93,51 @@ def _apply_transform(df: pd.DataFrame, spec: dict) -> tuple[pd.DataFrame, int]:
     # ------------------------------------------------------------------
     if t_type == "date_format_cast":
         cols: list[str] = params.get("columns", [])
-        from_format: str = params.get("from_format", "%Y-%m-%d")
+        # Accept either a single from_format OR a list of source_formats to try in order
+        source_formats: list[str] = params.get("source_formats") or (
+            [params["from_format"]] if params.get("from_format") else []
+        )
+        target_format: str = params.get("target_format", "%Y-%m-%d")
         for col in cols:
             if col not in new_df.columns:
                 continue
-            before_nulls = new_df[col].isna().sum()
-            new_df[col] = pd.to_datetime(new_df[col], format=from_format, errors="coerce").dt.date
-            after_nulls = new_df[col].isna().sum()
-            affected += int((new_df[col].notna()).sum())
-            _ = after_nulls - before_nulls  # newly nulled rows (coerce failures)
+            before_nulls = int(new_df[col].isna().sum())
+            col_series = new_df[col].astype(str).where(new_df[col].notna(), np.nan)
+
+            if source_formats:
+                # Try each source format in order; only parse still-unparsed (NaT) cells
+                parsed = pd.Series(pd.NaT, index=col_series.index, dtype="datetime64[ns]")
+                for fmt in source_formats:
+                    still_na = parsed.isna()
+                    if not still_na.any():
+                        break
+                    parsed[still_na] = pd.to_datetime(
+                        col_series[still_na], format=fmt, errors="coerce"
+                    )
+            else:
+                # No format supplied: use pandas inference (permissive)
+                parsed = pd.to_datetime(col_series, errors="coerce")
+
+            # Store as ISO-8601 strings — keeps DuckDB column as VARCHAR, JSON-safe
+            new_df[col] = parsed.dt.strftime(target_format).where(parsed.notna(), other=None)
+            after_nulls = int(new_df[col].isna().sum())
+            affected += int(new_df[col].notna().sum())
+            _ = after_nulls - before_nulls  # newly nulled rows (parse failures)
 
     # ------------------------------------------------------------------
     elif t_type == "null_invalid":
         col: str = params.get("column", "")
         pattern: str = params.get("pattern", "")
-        if col and col in new_df.columns and pattern:
-            mask = new_df[col].astype(str).str.match(pattern, na=False) | new_df[col].isna()
-            invalid_mask = ~mask
+        sentinel_values: list = [str(s) for s in params.get("sentinel_values", [])]
+        if col and col in new_df.columns and (pattern or sentinel_values):
+            invalid_mask = pd.Series(False, index=new_df.index)
+            if pattern:
+                valid_mask = new_df[col].astype(str).str.match(pattern, na=False) | new_df[col].isna()
+                invalid_mask = invalid_mask | ~valid_mask
+            if sentinel_values:
+                # Only flag non-null values whose string representation is in the sentinel list
+                sentinel_mask = new_df[col].notna() & new_df[col].astype(str).isin(sentinel_values)
+                invalid_mask = invalid_mask | sentinel_mask
             affected = int(invalid_mask.sum())
             new_df.loc[invalid_mask, col] = None
 
@@ -221,16 +249,18 @@ def _apply_transform(df: pd.DataFrame, spec: dict) -> tuple[pd.DataFrame, int]:
         replace_pattern: str | None = params.get("replace_pattern")
         replace_with: str | None = params.get("replace_with", "")
         if col and col in new_df.columns:
-            original = new_df[col].copy()
-            s = new_df[col].astype(str)
+            # Only operate on non-null values — astype(str) would convert NaN → "nan"
+            non_null_mask = new_df[col].notna()
+            original_non_null = new_df.loc[non_null_mask, col].astype(str)
+            s = original_non_null.copy()
             if strip:
                 s = s.str.strip()
             if lowercase:
                 s = s.str.lower()
             if replace_pattern:
                 s = s.str.replace(replace_pattern, replace_with or "", regex=True)
-            new_df[col] = s
-            affected = int((new_df[col] != original.astype(str)).sum())
+            new_df.loc[non_null_mask, col] = s
+            affected = int((s != original_non_null).sum())
 
     # ------------------------------------------------------------------
     elif t_type == "custom":
@@ -328,6 +358,26 @@ def _score_df_with_rules(df: pd.DataFrame, rules: list[dict]) -> float:
 _ROW_REMOVING_TRANSFORMS = {"filter_rows", "deduplicate"}
 
 
+def _to_safe_records(df: pd.DataFrame) -> list[dict]:
+    """Convert DataFrame rows to JSON-safe dicts.
+
+    Replaces NaN *and* NaT with None so that the result is always
+    serialisable by the standard json module (Temporal's default codec).
+    ``np.nan`` replacement misses ``pd.NaT``; pd.isna() catches both.
+    """
+    records = df.to_dict(orient="records")
+    safe = []
+    for row in records:
+        clean: dict = {}
+        for k, v in row.items():
+            try:
+                clean[k] = None if pd.isna(v) else v  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                clean[k] = v  # pd.isna raises on array-like scalars
+        safe.append(clean)
+    return safe
+
+
 def _get_preview_indices(
     df: pd.DataFrame,
     transformation_spec: dict,
@@ -344,10 +394,15 @@ def _get_preview_indices(
     if not approved_rules or df.empty:
         return fallback
 
-    col = transformation_spec.get("column") or transformation_spec.get("params", {}).get("column")
-    # Note: multi-column transforms (e.g. date_format_cast uses params.columns list)
-    # will have col=None here and fall back to head(5). Single-column transforms
-    # (the majority) are fully supported.
+    params = transformation_spec.get("params", {})
+    col = transformation_spec.get("column") or params.get("column")
+    # Multi-column transforms (date_format_cast) use params.columns (list) instead of
+    # params.column (singular).  Use the first listed column for rule-based row selection.
+    if col is None:
+        multi_cols = params.get("columns", [])
+        if multi_cols:
+            col = multi_cols[0]
+
     relevant_rules = [r for r in approved_rules if r.get("column") == col] if col else []
     if not relevant_rules:
         return fallback
@@ -433,6 +488,31 @@ def validate_transform_spec(
     if missing_subset:
         return False, f"Subset columns not found: {missing_subset}. Available columns: {available}"
 
+    # Type-specific required-param checks (catch silent no-ops before dry-run)
+    t_type = transformation_spec.get("type", "")
+    if t_type == "null_invalid":
+        has_pattern = bool(params.get("pattern", ""))
+        has_sentinels = bool(params.get("sentinel_values", []))
+        if not has_pattern and not has_sentinels:
+            return False, (
+                "null_invalid requires either 'pattern' (regex string matching valid values) "
+                "or 'sentinel_values' (list of invalid literal strings to null out). "
+                "Example: {\"column\": \"email\", \"pattern\": \"^[^@]+@[^@]+\\\\.[^@]+$\"} "
+                "or {\"column\": \"email\", \"sentinel_values\": [\"nan\", \"N/A\", \"none\"]}"
+            )
+    elif t_type == "date_format_cast":
+        if not params.get("columns"):
+            return False, "date_format_cast requires 'columns' (list of column names)"
+        if not params.get("from_format") and not params.get("source_formats"):
+            return False, (
+                "date_format_cast requires either 'from_format' (single format string) "
+                "or 'source_formats' (list of formats to try in order). "
+                "Example: {\"columns\": [\"date_col\"], \"source_formats\": [\"%Y/%m/%d\", \"%m/%d/%Y\"]}"
+            )
+    elif t_type == "filter_rows":
+        if not params.get("operator"):
+            return False, "filter_rows requires 'operator' (eq|ne|in|not_in|lt|gt|lte|gte)"
+
     # Try running the transform to catch unknown types and operation errors
     try:
         _apply_transform(sample_df.copy(), transformation_spec)
@@ -467,7 +547,7 @@ def preview(
     df = _load_df(session_id)
 
     sample_indices = _get_preview_indices(df, transformation_spec, approved_rules)
-    before_sample = df.loc[sample_indices].replace({np.nan: None}).to_dict(orient="records")
+    before_sample = _to_safe_records(df.loc[sample_indices])
 
     try:
         new_df, affected = _apply_transform(df, transformation_spec)
@@ -483,10 +563,10 @@ def preview(
 
     t_type = transformation_spec.get("type", "")
     if t_type in _ROW_REMOVING_TRANSFORMS:
-        after_sample = new_df.head(5).replace({np.nan: None}).to_dict(orient="records")
+        after_sample = _to_safe_records(new_df.head(5))
     else:
         existing = [i for i in sample_indices if i in new_df.index]
-        after_sample = new_df.loc[existing].replace({np.nan: None}).to_dict(orient="records")
+        after_sample = _to_safe_records(new_df.loc[existing])
 
     projected_score: float | None = None
     projected_score_delta: float | None = None
