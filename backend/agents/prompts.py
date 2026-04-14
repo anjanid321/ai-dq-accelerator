@@ -90,7 +90,7 @@ Generalization principle: Rules must catch the entire class of issue, not just t
 - WRONG: value_in_set with ["thirty thousand", "twenty thousand"] — only catches those exact strings
 - RIGHT: custom_sql with TRY_CAST(salary AS DOUBLE) IS NULL AND salary IS NOT NULL — catches any non-numeric salary
 - WRONG: regex_match with "thirty thousand" — too specific
-- RIGHT: regex_match with "^[0-9]+(\.[0-9]+)?$" — validates the format class
+- RIGHT: regex_match with "^[0-9]+(\\.[0-9]+)?$" — validates the format class
 Prefer regex patterns, range checks, and type-validity SQL over enumerating specific bad values."""
 
 VALIDATION_ANALYZER_SYSTEM = """You are a data quality analyst interpreting validation results and anomaly detection output.
