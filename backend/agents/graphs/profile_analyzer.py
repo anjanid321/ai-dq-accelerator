@@ -13,17 +13,14 @@ import logging
 import re
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 from backend.agents.emit import emit as _emit, _find_project_root
 from backend.agents.retry import call_claude_with_retry
-
 from langgraph.graph import END, StateGraph
-
 from backend.agents.prompts import (
     PROFILE_OVERVIEW_SYSTEM,
     PROFILE_SYNTHESIZE_SYSTEM,
     RULE_PROPOSER_SYSTEM,
+    STRUCTURE_FINDINGS_SYSTEM,
 )
 from backend.agents.state import ProfileAnalyzerState
 from backend.agents.graphs.deep_investigate import deep_investigate_node
@@ -36,6 +33,8 @@ from dq_tools.explorer import (
     run_sql,
 )
 from dq_tools.rule_engine import rule_to_sodacl_check
+
+logger = logging.getLogger(__name__)
 
 
 def _load_profile_summary(session_id: str) -> dict:
@@ -333,6 +332,71 @@ Your findings feed directly into the data passport and rule proposals.""",
     }
 
 
+# Phase 2b Structure findings
+def structure_findings_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState:
+    """Extract ExplorationFindings JSON from raw investigation_findings text.
+
+    Single non-tool Claude call. Instructs verbatim preservation of all counts,
+    sample values, and reasoning. Falls back to a prose entry on JSON parse failure
+    so the notebook degrades gracefully rather than crashing.
+    """
+    import anthropic
+
+    client = anthropic.Anthropic()
+
+    response = call_claude_with_retry(
+        client,
+        model="claude-sonnet-4-6",
+        max_tokens=8192,
+        temperature=0,
+        system=STRUCTURE_FINDINGS_SYSTEM,
+        messages=[
+            {
+                "role": "user",
+                "content": f"""Dataset: {state["use_case"]}
+
+Investigation findings:
+{state["investigation_findings"]}
+
+Extract the structured ExplorationFindings JSON. Output ONLY the JSON object.""",
+            }
+        ],
+    )
+
+    text = response.content[0].text
+    parsed = _parse_json(text)
+
+    if not isinstance(parsed, dict):
+        logger.warning(
+            "[structure_findings:%s] JSON parse failed — using prose fallback",
+            state["session_id"][:8],
+        )
+        parsed = {
+            "column_findings": [
+                {
+                    "column": "__raw__",
+                    "semantic_meaning": "Raw investigation text (structure extraction failed)",
+                    "data_type_actual": "text",
+                    "stats": {},
+                    "full_analysis": state["investigation_findings"],
+                    "issues": [],
+                    "assumptions": [],
+                    "rule_implications": [],
+                }
+            ],
+            "cross_column_findings": [],
+            "open_questions": [],
+            "readiness_assessment": "unknown",
+            "key_risks": [],
+        }
+
+    return {
+        **state,
+        "exploration_findings": parsed,
+        "cross_column_findings": parsed.get("cross_column_findings", []),
+    }
+
+
 # Phase 3 Synthesize understanding
 def synthesize_understanding_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState:
     """Write a structured data passport from the investigation findings."""
@@ -484,12 +548,14 @@ def build_profile_analyzer_graph():
 
     graph.add_node("read_overview", read_overview_node)
     graph.add_node("investigate", deep_investigate_node)
+    graph.add_node("structure_findings", structure_findings_node)
     graph.add_node("synthesize_understanding", synthesize_understanding_node)
     graph.add_node("propose_rules", propose_rules_node)
 
     graph.set_entry_point("read_overview")
     graph.add_edge("read_overview", "investigate")
-    graph.add_edge("investigate", "synthesize_understanding")
+    graph.add_edge("investigate", "structure_findings")
+    graph.add_edge("structure_findings", "synthesize_understanding")
     graph.add_edge("synthesize_understanding", "propose_rules")
     graph.add_edge("propose_rules", END)
 
@@ -517,6 +583,11 @@ def run_profile_analyzer(
         "overview_notes": "",
         "columns_to_investigate": [],
         "investigation_findings": "",
+        "cross_column_findings": [],
+        "exploration_findings": {},
+        "exploration_notebook_path": "",
+        "investigation_feedback": None,
+        "investigation_round": 0,
         "data_passport": "",
         "ai_summary": "",
         "suggested_rules": [],
@@ -530,6 +601,8 @@ def run_profile_analyzer(
             "suggested_rules": result.get("suggested_rules", []),
             "top_issues": result.get("top_issues", []),
             "data_passport": result.get("data_passport", ""),
+            "exploration_findings": result.get("exploration_findings", {}),
+            "investigation_findings": result.get("investigation_findings", ""),
         }
     except Exception as e:
         return {
