@@ -99,6 +99,58 @@ def dq_get_column_detail(
     return json.dumps(result, default=str)
 
 
+def dq_group_over_time(
+    group_col: Annotated[str, "Categorical column to track over time bins."],
+    time_col: Annotated[str, "Date/time column to split into bins."],
+    bins: Annotated[int, "Number of time bins (default 10)."] = 10,
+    *,
+    runtime: ToolRuntime[InvestigationContext, None],
+) -> str:
+    """Track how categorical values change across time bins.
+    Detects renames, retirements, and structural shifts over time."""
+    from dq_tools.cross_column import group_over_time
+    result = group_over_time(runtime.context.session_id, group_col, time_col, bins)
+    return json.dumps(result, default=str)
+
+
+def dq_find_correlated_nulls(
+    threshold: Annotated[float, "Phi coefficient threshold (default 0.3). Lower = more pairs returned."] = 0.3,
+    *,
+    runtime: ToolRuntime[InvestigationContext, None],
+) -> str:
+    """Find column pairs whose null patterns co-occur above threshold.
+    Detects systematic missingness invisible in per-column profiling."""
+    from dq_tools.cross_column import find_correlated_nulls
+    result = find_correlated_nulls(runtime.context.session_id, threshold)
+    return json.dumps(result, default=str)
+
+
+def dq_pairwise_profile(
+    col_a: Annotated[str, "First column name."],
+    col_b: Annotated[str, "Second column name."],
+    *,
+    runtime: ToolRuntime[InvestigationContext, None],
+) -> str:
+    """Cross-column profile dispatched by dtype: crosstab, correlation, or group stats."""
+    from dq_tools.cross_column import pairwise_profile
+    result = pairwise_profile(runtime.context.session_id, col_a, col_b)
+    return json.dumps(result, default=str)
+
+
+def dq_compute_correlation_matrix(
+    columns: Annotated[
+        Optional[list[str]],
+        "List of numeric column names. Omit to auto-select all numeric columns (capped at 20).",
+    ] = None,
+    *,
+    runtime: ToolRuntime[InvestigationContext, None],
+) -> str:
+    """Pearson correlation matrix for numeric columns. Use early to find pairs worth investigating."""
+    from dq_tools.cross_column import compute_correlation_matrix
+    result = compute_correlation_matrix(runtime.context.session_id, columns)
+    return json.dumps(result, default=str)
+
+
 # ---------------------------------------------------------------------------
 # Progress file path helper (mirrors profile_analyzer._progress_path)
 # ---------------------------------------------------------------------------
@@ -126,6 +178,10 @@ def _build_deep_investigate_agent():
             dq_check_regex_pattern,
             dq_get_sample_rows,
             dq_get_column_detail,
+            dq_group_over_time,            # NEW
+            dq_find_correlated_nulls,      # NEW
+            dq_pairwise_profile,           # NEW
+            dq_compute_correlation_matrix, # NEW
         ],
         system_prompt=PROFILE_INVESTIGATION_SYSTEM,
         context_schema=InvestigationContext,
@@ -163,8 +219,43 @@ def deep_investigate_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState:
         context_lines.append(f"Target column (ML label): {state['target_column']}")
 
     context_header = "\n".join(context_lines)
-    initial_message = HumanMessage(
-        content=f"""{context_header}
+
+    investigation_round = state.get("investigation_round", 0)
+
+    if investigation_round > 0:
+        prior_findings = state.get("exploration_findings", {})
+        prior_raw = state.get("investigation_findings", "")
+        user_feedback = state.get("investigation_feedback", "")
+        initial_message = HumanMessage(
+            content=f"""{context_header}
+
+Your prior investigation (round {investigation_round}) established these findings.
+
+=== Structured findings (ExplorationFindings JSON) ===
+{json.dumps(prior_findings, indent=2, default=str)}
+
+=== Raw investigation notes (authoritative record) ===
+{prior_raw}
+
+=== User feedback after reviewing the exploration notebook ===
+{user_feedback}
+
+Your job for this re-investigation round:
+- Use the dq_* tools to investigate the specific threads the user raised.
+- Where the user's claim conflicts with your prior evidence, verify it against
+  the data before accepting it. State your evidence explicitly.
+- Do not re-investigate findings already well-established unless the user
+  specifically asked you to revisit them.
+- At the end of your investigation, output COMPLETE UPDATED FINDINGS that
+  extend (do not replace) the prior raw investigation notes.
+  Begin your final output with the marker: === UPDATED FINDINGS ===
+  then write the full combined findings (prior + new).
+
+Use ONLY the dq_* tools for all data access."""
+        )
+    else:
+        initial_message = HumanMessage(
+            content=f"""{context_header}
 
 Overview findings:
 {state["overview_notes"]}
@@ -173,7 +264,8 @@ Columns flagged for investigation:
 {json.dumps(state["columns_to_investigate"], indent=2)}
 
 Use ONLY the dq_* tools (dq_run_sql, dq_get_value_counts, dq_check_regex_pattern,
-dq_get_sample_rows, dq_get_column_detail) for all data access.
+dq_get_sample_rows, dq_get_column_detail, dq_group_over_time, dq_find_correlated_nulls,
+dq_pairwise_profile, dq_compute_correlation_matrix) for all data access.
 
 Use write_todos to plan and track your investigation across all flagged columns
 so you don't miss any. Follow unexpected threads — if you find something
@@ -183,7 +275,7 @@ where columns are logically related.
 When you have a thorough, specific understanding of every flagged column and
 have followed all interesting threads, write up your complete findings WITHOUT
 using any more tools. Your findings feed directly into the data passport."""
-    )
+        )
 
     config: RunnableConfig = {
         "recursion_limit": 120,  # ~60 tool-call rounds (agent + tools = 2 hops each)

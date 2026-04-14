@@ -162,6 +162,10 @@ def test_build_agent_passes_all_five_tools(mock_create, mock_anthropic):
         "dq_check_regex_pattern",
         "dq_get_sample_rows",
         "dq_get_column_detail",
+        "dq_group_over_time",
+        "dq_find_correlated_nulls",
+        "dq_pairwise_profile",
+        "dq_compute_correlation_matrix",
     }
 
 
@@ -370,6 +374,7 @@ def test_deep_investigate_node_passes_session_context_to_stream(mock_build, mock
     deep_investigate_node(_make_state("my-session-id"))
 
     stream_kwargs = mock_agent.stream.call_args.kwargs
-    context = stream_kwargs["config"]["configurable"]["context"]
+    context = stream_kwargs["context"]
     assert isinstance(context, InvestigationContext)
+    assert context.session_id == "my-session-id"
     assert context.session_id == "my-session-id"
