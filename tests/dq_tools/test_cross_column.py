@@ -32,9 +32,6 @@ def session_id(tmp_path, monkeypatch):
     from dq_tools import explorer as explorer_mod
     monkeypatch.setattr(explorer_mod, "_find_project_root", lambda: tmp_path)
 
-    import dq_tools.cross_column as cc_mod
-    monkeypatch.setattr(cc_mod, "_find_project_root", lambda: tmp_path)
-
     session_dir = tmp_path / "data" / "sessions" / sid
     session_dir.mkdir(parents=True)
     db_path = session_dir / "working.duckdb"

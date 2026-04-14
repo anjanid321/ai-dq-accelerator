@@ -5,17 +5,7 @@ All accept session_id and operate on that session's working.duckdb.
 """
 from __future__ import annotations
 from typing import Optional
-from pathlib import Path
 import pandas as pd
-
-
-def _find_project_root() -> Path:
-    p = Path(__file__).resolve().parent
-    while p != p.parent:
-        if (p / "pyproject.toml").exists():
-            return p
-        p = p.parent
-    return Path(".")
 
 
 def _load_df(session_id: str) -> pd.DataFrame:
@@ -134,7 +124,7 @@ def pairwise_profile(session_id: str, col_a: str, col_b: str) -> dict:
                 "count": len(grp),
             })
         return {"type": "numeric_vs_numeric", "col_a": col_a, "col_b": col_b,
-                "correlation": round(corr, 4), "n_valid": len(valid),
+                "correlation": None if pd.isna(corr) else round(corr, 4), "n_valid": len(valid),
                 "scatter_by_decile": scatter}
     elif not a_num and not b_num:
         top_a = df[col_a].value_counts().head(10).index.tolist()
@@ -162,7 +152,7 @@ def pairwise_profile(session_id: str, col_a: str, col_b: str) -> dict:
                 "category": str(row[cat_col]),
                 "count": int(row["count"]),
                 "mean": round(float(row["mean"]), 4),
-                "std": round(float(row["std"]), 4),
+                "std": None if pd.isna(row["std"]) else round(float(row["std"]), 4),
                 "p25": round(float(row["p25"]), 4),
                 "p75": round(float(row["p75"]), 4),
                 "null_rate": null_rates.get(str(row[cat_col]), 0.0),
