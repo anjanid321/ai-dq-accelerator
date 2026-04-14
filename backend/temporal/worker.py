@@ -20,10 +20,14 @@ from temporalio.worker import Worker  # noqa: E402
 from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow  # noqa: E402
 from backend.temporal.activities.data_activities import (  # noqa: E402
     load_dataset_activity,
-    profile_and_analyze_activity,
     run_validation_activity,
     detect_anomalies_activity,
     analyze_and_prioritize_activity,
+)
+from backend.temporal.activities.investigation_activities import (  # noqa: E402
+    profile_and_investigate_activity,
+    synthesize_and_propose_activity,
+    reinvestigate_activity,
 )
 from backend.temporal.activities.transform_activities import (  # noqa: E402
     suggest_next_transformation_activity,
@@ -61,7 +65,9 @@ async def main():
         workflows=[DQAcceleratorWorkflow],
         activities=[
             load_dataset_activity,
-            profile_and_analyze_activity,
+            profile_and_investigate_activity,
+            synthesize_and_propose_activity,
+            reinvestigate_activity,
             run_validation_activity,
             detect_anomalies_activity,
             analyze_and_prioritize_activity,

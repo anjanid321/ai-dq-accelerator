@@ -25,42 +25,6 @@ def _load_dataset_sync(params: dict) -> dict:
 
 
 @activity.defn
-async def profile_and_analyze_activity(params: dict) -> dict:
-    """
-    params: {session_id, use_case, target_column, description}
-    Returns: {profile, ai_summary, suggested_rules, top_issues}
-    """
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, partial(_profile_and_analyze_sync, params))
-
-def _profile_and_analyze_sync(params: dict) -> dict:
-    from dq_tools.profiler import profile_dataset
-    from backend.agents.graphs.profile_analyzer import run_profile_analyzer
-
-    session_id = params["session_id"]
-
-    # profile_dataset writes profile.json + profile_report.html to disk,
-    # returns a trimmed summary dict (not the full multi-MB JSON)
-    profile_summary = profile_dataset(session_id)
-
-    # Agent reads full profile.json from disk via session_id;
-    # only lightweight summaries flow through Temporal event history
-    agent_result = run_profile_analyzer(
-        session_id=session_id,
-        use_case=params.get("use_case", ""),
-        target_column=params.get("target_column"),
-        description=params.get("description"),
-    )
-    return {
-        # Return trimmed profile summary, not the full JSON
-        "profile": profile_summary,
-        "ai_summary": agent_result.get("ai_summary", ""),
-        "suggested_rules": agent_result.get("suggested_rules", []),
-        "top_issues": agent_result.get("top_issues", []),
-    }
-
-
-@activity.defn
 async def run_validation_activity(params: dict) -> dict:
     """
     params: {session_id, approved_rules}
@@ -90,7 +54,6 @@ async def detect_anomalies_activity(params: dict) -> dict:
 
 def _detect_anomalies_sync(params: dict) -> dict:
     import json
-    from pathlib import Path
     from dq_tools.anomaly_detector import detect
 
     session_id = params["session_id"]
@@ -128,7 +91,6 @@ async def analyze_and_prioritize_activity(params: dict) -> dict:
 
 def _analyze_and_prioritize_sync(params: dict) -> dict:
     import json
-    from pathlib import Path
     from backend.agents.graphs.validation_analyzer import run_validation_analyzer
 
     session_id = params["session_id"]
