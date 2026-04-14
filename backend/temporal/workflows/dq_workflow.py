@@ -8,10 +8,14 @@ from temporalio.common import RetryPolicy
 with workflow.unsafe.imports_passed_through():
     from backend.temporal.activities.data_activities import (
         load_dataset_activity,
-        profile_and_analyze_activity,
         run_validation_activity,
         detect_anomalies_activity,
         analyze_and_prioritize_activity,
+    )
+    from backend.temporal.activities.investigation_activities import (
+        profile_and_investigate_activity,
+        synthesize_and_propose_activity,
+        reinvestigate_activity,
     )
     from backend.temporal.activities.transform_activities import (
         preview_transformation_activity,
@@ -83,6 +87,15 @@ class DQAcceleratorWorkflow:
         self.scorecard: dict = {}
         self.narrative: str = ""
 
+        # Investigation / exploration state
+        self.investigation_findings: str = ""
+        self.exploration_findings: dict = {}
+        self.exploration_notebook_path: str = ""
+        self.investigation_round: int = 0
+        self.investigation_feedback: dict | None = None  # {"message": str, "approve": bool}
+        self.synthesis_constrained: bool = False
+        self.synthesis_constraint_reasons: list = []
+
         # Pipeline state
         self.pipeline_config: dict | None = None
         self.output_dir: str = ""
@@ -122,6 +135,11 @@ class DQAcceleratorWorkflow:
         """payload: {action: str, instruction?: str}"""
         self.escalation_decision = payload
 
+    @workflow.signal
+    def submit_investigation_feedback(self, payload: dict) -> None:
+        """payload: {"message": str, "approve": bool}"""
+        self.investigation_feedback = payload
+
     # ── Queries ─────────────────────────────────────────────────────────────
 
     @workflow.query
@@ -159,6 +177,17 @@ class DQAcceleratorWorkflow:
         }
 
     @workflow.query
+    def get_exploration(self) -> dict:
+        return {
+            "exploration_findings": self.exploration_findings,
+            "notebook_path": self.exploration_notebook_path,
+            "open_questions": self.exploration_findings.get("open_questions", []),
+            "investigation_round": self.investigation_round,
+            "synthesis_constrained": self.synthesis_constrained,
+            "synthesis_constraint_reasons": self.synthesis_constraint_reasons,
+        }
+
+    @workflow.query
     def get_full_state(self) -> dict:
         return {
             "stage": self.stage,
@@ -181,6 +210,11 @@ class DQAcceleratorWorkflow:
             "narrative": self.narrative,
             "output_dir": self.output_dir,
             "zip_path": self.zip_path,
+            "exploration_findings": self.exploration_findings,
+            "exploration_notebook_path": self.exploration_notebook_path,
+            "investigation_round": self.investigation_round,
+            "synthesis_constrained": self.synthesis_constrained,
+            "synthesis_constraint_reasons": self.synthesis_constraint_reasons,
             "validation_results": {
                 **self.validation_results,
                 "per_rule": [
@@ -235,10 +269,10 @@ class DQAcceleratorWorkflow:
             retry_policy=ACTIVITY_RETRY,
         )
 
-        # ── Stage: PROFILING ───────────────────────────────────────────────
+        # ── Stage: PROFILING (investigation + structure findings + notebook) ────────
         self.stage = "PROFILING"
-        profile_result = await workflow.execute_activity(
-            profile_and_analyze_activity,
+        investigation_result = await workflow.execute_activity(
+            profile_and_investigate_activity,
             {
                 "session_id": self.session_id,
                 "use_case": self.use_case,
@@ -248,9 +282,77 @@ class DQAcceleratorWorkflow:
             start_to_close_timeout=AI_ACTIVITY_TIMEOUT,
             retry_policy=ACTIVITY_RETRY,
         )
+        self.exploration_findings = investigation_result["exploration_findings"]
+        self.investigation_findings = investigation_result["investigation_findings"]
+        self.exploration_notebook_path = investigation_result.get("notebook_path", "")
+
+        # ── Stage: AWAITING_INVESTIGATION_REVIEW ─────────────────────────────────
+        self.stage = "AWAITING_INVESTIGATION_REVIEW"
+        await workflow.wait_condition(lambda: self.investigation_feedback is not None)
+        feedback = self.investigation_feedback
+        self.investigation_feedback = None
+
+        # Re-investigation loop (max 2 rounds)
+        while not feedback.get("approve", False) and self.investigation_round < 2:
+            self.stage = "REINVESTIGATING"
+            self.investigation_round += 1
+
+            reinvestigation_result = await workflow.execute_activity(
+                reinvestigate_activity,
+                {
+                    "session_id": self.session_id,
+                    "use_case": self.use_case,
+                    "target_column": self.target_column,
+                    "overview_notes": investigation_result["overview_notes"],
+                    "columns_to_investigate": investigation_result["columns_to_investigate"],
+                    "exploration_findings": self.exploration_findings,
+                    "investigation_findings": self.investigation_findings,
+                    "feedback_message": feedback.get("message", ""),
+                    "investigation_round": self.investigation_round,
+                },
+                start_to_close_timeout=AI_ACTIVITY_TIMEOUT,
+                retry_policy=ACTIVITY_RETRY,
+            )
+            self.exploration_findings = reinvestigation_result["exploration_findings"]
+            self.investigation_findings = reinvestigation_result["investigation_findings"]
+            self.exploration_notebook_path = reinvestigation_result.get("notebook_path", "")
+
+            self.stage = "AWAITING_INVESTIGATION_REVIEW"
+            await workflow.wait_condition(lambda: self.investigation_feedback is not None)
+            feedback = self.investigation_feedback
+            self.investigation_feedback = None
+
+        # Check for constrained synthesis (round limit hit without approval)
+        if not feedback.get("approve", False):
+            open_questions = self.exploration_findings.get("open_questions", [])
+            readiness = self.exploration_findings.get("readiness_assessment", "good")
+            if open_questions or readiness == "poor":
+                self.synthesis_constrained = True
+                self.synthesis_constraint_reasons = open_questions
+
+        # ── Stage: PROFILING_SYNTHESIS ─────────────────────────────────────────────
+        self.stage = "PROFILING_SYNTHESIS"
+        profile_result = await workflow.execute_activity(
+            synthesize_and_propose_activity,
+            {
+                "session_id": self.session_id,
+                "use_case": self.use_case,
+                "target_column": self.target_column,
+                "description": self.description,
+                "investigation_findings": self.investigation_findings,
+                "exploration_findings": self.exploration_findings,
+                "overview_notes": investigation_result["overview_notes"],
+                "columns_to_investigate": investigation_result["columns_to_investigate"],
+                "synthesis_constrained": self.synthesis_constrained,
+                "synthesis_constraint_reasons": self.synthesis_constraint_reasons,
+            },
+            start_to_close_timeout=AI_ACTIVITY_TIMEOUT,
+            retry_policy=ACTIVITY_RETRY,
+        )
         self.profile = profile_result["profile"]
         self.ai_summary = profile_result["ai_summary"]
         self.suggested_rules = profile_result["suggested_rules"]
+        self.top_issues = profile_result.get("top_issues", [])
 
         # ── Stage: AWAITING_RULE_APPROVAL ──────────────────────────────────
         self.stage = "AWAITING_RULE_APPROVAL"
