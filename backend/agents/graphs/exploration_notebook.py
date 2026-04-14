@@ -41,43 +41,60 @@ print(f"Dataset: {{len(df):,}} rows x {{len(df.columns)}} columns")
 print(f"Columns: {{', '.join(df.columns)}}")""".strip()
 
 
+def _resolve_col(column: str) -> str:
+    """Generate a code snippet that resolves a column name case-insensitively."""
+    return (
+        f"_col = next((c for c in df.columns if c == {column!r}"
+        f" or c.lower() == {column!r}.lower()), None)"
+    )
+
+
 def _distribution_cell(column: str, data_type: str, issues: list) -> str:
     issue_sample_vals = repr(
         [str(s) for issue in issues for s in issue.get("sample_values", [])][:10]
     )
+    resolve = _resolve_col(column)
     if data_type in ("numeric", "int", "float", "integer"):
-        return f"""col = df[{column!r}].dropna()
-if len(col) > 0:
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.hist(col, bins=min(50, max(10, col.nunique())), color='steelblue', alpha=0.7, edgecolor='white')
-    for stat, fn, color, ls in [
-        ('mean', lambda s: s.mean(), 'red', '--'),
-        ('median', lambda s: s.median(), 'orange', '-'),
-        ('p5', lambda s: s.quantile(0.05), 'green', ':'),
-        ('p95', lambda s: s.quantile(0.95), 'green', ':'),
-    ]:
-        val = fn(col)
-        ax.axvline(val, color=color, linestyle=ls, linewidth=1.5, label=f'{{stat}}={{val:.2f}}')
-    ax.set_title(f{repr(column + " — Distribution (n={:,})")}.format(len(col)))
-    ax.set_xlabel({column!r})
-    ax.set_ylabel('Count')
-    ax.legend(fontsize=8)
-    plt.tight_layout()
-    plt.show()""".strip()
+        return f"""{resolve}
+if _col is None:
+    print(f"Column {column!r} not found in dataset (available: {{list(df.columns)}})")
+else:
+    col = df[_col].dropna()
+    if len(col) > 0:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.hist(col, bins=min(50, max(10, col.nunique())), color='steelblue', alpha=0.7, edgecolor='white')
+        for stat, fn, color, ls in [
+            ('mean', lambda s: s.mean(), 'red', '--'),
+            ('median', lambda s: s.median(), 'orange', '-'),
+            ('p5', lambda s: s.quantile(0.05), 'green', ':'),
+            ('p95', lambda s: s.quantile(0.95), 'green', ':'),
+        ]:
+            val = fn(col)
+            ax.axvline(val, color=color, linestyle=ls, linewidth=1.5, label=f'{{stat}}={{val:.2f}}')
+        ax.set_title(f{repr(column + " — Distribution (n={:,})")}.format(len(col)))
+        ax.set_xlabel({column!r})
+        ax.set_ylabel('Count')
+        ax.legend(fontsize=8)
+        plt.tight_layout()
+        plt.show()""".strip()
     else:
-        return f"""vc = df[{column!r}].value_counts(dropna=False).head(25)
-issue_vals = {issue_sample_vals}
-colors = ['#e07b39' if str(v) in issue_vals else 'steelblue' for v in vc.index]
-fig, ax = plt.subplots(figsize=(10, max(4, len(vc) * 0.35)))
-ax.barh([str(v) for v in vc.index], vc.values, color=colors)
-ax.set_title({repr(column + " — Top value counts  (orange = flagged values)")!r})
-ax.set_xlabel('Count')
-ax.invert_yaxis()
-for i, (lbl, val) in enumerate(zip([str(v) for v in vc.index], vc.values)):
-    ax.text(val * 1.005, i, f'{{val:,}}', va='center', fontsize=8)
-plt.tight_layout()
-plt.show()
-print(f"Showing top 25 of {{df[{column!r}].nunique()}} distinct values | Nulls: {{df[{column!r}].isnull().sum():,}}")""".strip()
+        return f"""{resolve}
+if _col is None:
+    print(f"Column {column!r} not found in dataset (available: {{list(df.columns)}})")
+else:
+    vc = df[_col].value_counts(dropna=False).head(25)
+    issue_vals = {issue_sample_vals}
+    colors = ['#e07b39' if str(v) in issue_vals else 'steelblue' for v in vc.index]
+    fig, ax = plt.subplots(figsize=(10, max(4, len(vc) * 0.35)))
+    ax.barh([str(v) for v in vc.index], vc.values, color=colors)
+    ax.set_title({repr(column + " — Top value counts  (orange = flagged values)")!r})
+    ax.set_xlabel('Count')
+    ax.invert_yaxis()
+    for i, (lbl, val) in enumerate(zip([str(v) for v in vc.index], vc.values)):
+        ax.text(val * 1.005, i, f'{{val:,}}', va='center', fontsize=8)
+    plt.tight_layout()
+    plt.show()
+    print(f"Showing top 25 of {{df[_col].nunique()}} distinct values | Nulls: {{df[_col].isnull().sum():,}}")""".strip()
 
 
 def _failing_rows_cell(column: str, issue_desc: str, where_clause: str, count) -> str:
