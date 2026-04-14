@@ -15,11 +15,11 @@ if _env_path.exists():
             _k, _, _v = _line.partition("=")
             os.environ.setdefault(_k.strip(), _v.strip())
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from temporalio.client import Client
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from temporalio.client import Client  # noqa: E402
 
-from backend.api.routers import sessions, rules, transformations, pipeline, triage, plan_router, exploration
+from backend.api.routers import sessions, rules, transformations, pipeline, triage, plan_router, exploration  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
