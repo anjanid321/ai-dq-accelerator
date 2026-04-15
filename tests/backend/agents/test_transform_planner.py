@@ -1,5 +1,4 @@
 """Tests for the refactored TransformPlanner (deep_plan_node-backed)."""
-import pytest
 from unittest.mock import patch
 
 
@@ -37,9 +36,11 @@ def test_finalize_assembles_result():
     with patch("backend.agents.graphs.transform_planner.emit"):
         result_state = finalize(state)
 
-    assert result_state["result"]["steps"] == [{"id": "step_1"}]
-    assert result_state["result"]["summary"] == "Fix everything."
-    assert result_state["result"]["projected_final_score"] == 0.92
+    result = result_state["result"]
+    assert result is not None
+    assert result["steps"] == [{"id": "step_1"}]
+    assert result["summary"] == "Fix everything."
+    assert result["projected_final_score"] == 0.92
 
 
 def test_graph_has_correct_nodes():
