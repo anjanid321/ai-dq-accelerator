@@ -16,6 +16,7 @@ with workflow.unsafe.imports_passed_through():
         profile_and_investigate_activity,
         synthesize_and_propose_activity,
         reinvestigate_activity,
+        review_rules_activity,
     )
     from backend.temporal.activities.transform_activities import (
         preview_transformation_activity,
@@ -54,6 +55,7 @@ class DQAcceleratorWorkflow:
         self.profile: dict = {}
         self.ai_summary: str = ""
         self.suggested_rules: list = []
+        self.rule_revision_log: list = []
         self.approved_rules: list | None = None
 
         # Validation state
@@ -152,6 +154,7 @@ class DQAcceleratorWorkflow:
             "profile": self.profile,
             "ai_summary": self.ai_summary,
             "suggested_rules": self.suggested_rules,
+            "rule_revision_log": self.rule_revision_log,
         }
 
     @workflow.query
@@ -195,6 +198,7 @@ class DQAcceleratorWorkflow:
             "profile": self.profile,
             "ai_summary": self.ai_summary,
             "suggested_rules": self.suggested_rules,
+            "rule_revision_log": self.rule_revision_log,
             "baseline_quality_score": self.baseline_quality_score,
             "validation_summary": self.validation_summary,
             "anomaly_summary": self.anomaly_narrative,
@@ -353,6 +357,22 @@ class DQAcceleratorWorkflow:
         self.ai_summary = profile_result["ai_summary"]
         self.suggested_rules = profile_result["suggested_rules"]
         self.top_issues = profile_result.get("top_issues", [])
+
+        # ── Stage: RULE_REVIEW ─────────────────────────────────────────────
+        self.stage = "RULE_REVIEW"
+        review_result = await workflow.execute_activity(
+            review_rules_activity,
+            {
+                "session_id": self.session_id,
+                "suggested_rules": self.suggested_rules,
+                "exploration_findings": self.exploration_findings,
+                "use_case": self.use_case,
+            },
+            start_to_close_timeout=AI_ACTIVITY_TIMEOUT,
+            retry_policy=ACTIVITY_RETRY,
+        )
+        self.suggested_rules = review_result["suggested_rules"]
+        self.rule_revision_log = review_result["rule_revision_log"]
 
         # ── Stage: AWAITING_RULE_APPROVAL ──────────────────────────────────
         self.stage = "AWAITING_RULE_APPROVAL"
