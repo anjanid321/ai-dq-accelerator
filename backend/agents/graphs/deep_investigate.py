@@ -306,8 +306,11 @@ def _build_deep_investigate_agent():
 def deep_investigate_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState:
     """Deep investigation node backed by create_deep_agent.
 
-    Replaces the deprecated investigate_node. Produces the same
-    `investigation_findings` string consumed by synthesize_understanding_node.
+    Investigates the dataset using dq_* tools and emits structured
+    ===COLUMN_FINDING_START=== marker blocks inline. These blocks are parsed
+    to populate exploration_findings directly — no separate structure_findings_node
+    LLM call needed. The marker blocks are stripped from investigation_findings
+    (the prose text used for synthesis and the notebook appendix).
     """
     session_id = state["session_id"]
 
@@ -328,7 +331,6 @@ def deep_investigate_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState:
     context_lines = [f"Dataset: {state['use_case']}"]
     if state.get("target_column"):
         context_lines.append(f"Target column (ML label): {state['target_column']}")
-
     context_header = "\n".join(context_lines)
 
     investigation_round = state.get("investigation_round", 0)
@@ -357,10 +359,11 @@ Your job for this re-investigation round:
   the data before accepting it. State your evidence explicitly.
 - Do not re-investigate findings already well-established unless the user
   specifically asked you to revisit them.
-- At the end of your investigation, output COMPLETE UPDATED FINDINGS that
-  extend (do not replace) the prior raw investigation notes.
-  Begin your final output with the marker: === UPDATED FINDINGS ===
-  then write the full combined findings (prior + new).
+- After re-investigating a column, emit an updated ===COLUMN_FINDING_START=== block
+  for that column only (using the full structured output protocol from your system prompt).
+  Do NOT re-emit blocks for columns whose findings are unchanged.
+- At the end, emit updated ===CROSS_COLUMN_FINDING_START=== blocks if relevant,
+  and always emit a final ===EXPLORATION_SUMMARY_START=== block.
 
 Use ONLY the dq_* tools for all data access."""
         )
@@ -383,17 +386,16 @@ so you don't miss any. Follow unexpected threads — if you find something
 surprising in one column, investigate further. Check cross-column relationships
 where columns are logically related.
 
-When you have a thorough, specific understanding of every flagged column and
-have followed all interesting threads, write up your complete findings WITHOUT
-using any more tools. Your findings feed directly into the data passport."""
+When you finish investigating each column, immediately emit its ===COLUMN_FINDING_START===
+block (as described in your system prompt) before moving to the next column.
+After all columns, emit cross-column blocks, then the ===EXPLORATION_SUMMARY_START=== block."""
         )
 
     config: RunnableConfig = {
-        "recursion_limit": 300,  # deep agent has planner + tool nodes; allow ~100 tool-call rounds
+        "recursion_limit": 300,
     }
 
-    # Stream with stream_mode="values" — each chunk is the full state.
-    # Track seen message count to process only new messages each step.
+    all_ai_text: list[str] = []
     seen = 0
     final_state = None
 
@@ -407,17 +409,13 @@ using any more tools. Your findings feed directly into the data passport."""
             messages = chunk.get("messages", [])
             for msg in messages[seen:]:
                 if isinstance(msg, AIMessage):
-                    # Emit text reasoning
-                    if isinstance(msg.content, str) and msg.content.strip():
-                        _emit(session_id, "thinking", text=msg.content.strip()[:300])
-                    elif isinstance(msg.content, list):
-                        for block in msg.content:
-                            if (
-                                isinstance(block, dict)
-                                and block.get("type") == "text"
-                                and block.get("text", "").strip()
-                            ):
-                                _emit(session_id, "thinking", text=block["text"].strip()[:300])
+                    text = _extract_ai_text(msg)
+                    if text:
+                        all_ai_text.append(text)
+                    # Emit prose reasoning (strip marker blocks to keep SSE feed readable)
+                    prose = _strip_marker_blocks(text)
+                    if prose.strip():
+                        _emit(session_id, "thinking", text=prose.strip()[:300])
                     # Emit outbound tool calls
                     for tc in getattr(msg, "tool_calls", []):
                         _emit(session_id, "tool_call", tool=tc["name"], input=tc.get("args", {}))
@@ -439,23 +437,25 @@ using any more tools. Your findings feed directly into the data passport."""
 
     _emit(session_id, "done", total_messages=seen)
 
-    findings = ""
-    if final_state:
-        # Walk messages in reverse to find the last substantive AI text
-        for msg in reversed(final_state.get("messages", [])):
-            if not isinstance(msg, AIMessage):
-                continue
-            if isinstance(msg.content, str) and msg.content.strip():
-                findings = msg.content
-                break
-            if isinstance(msg.content, list):
-                text_parts = [
-                    b["text"]
-                    for b in msg.content
-                    if isinstance(b, dict) and b.get("type") == "text" and b.get("text", "").strip()
-                ]
-                if text_parts:
-                    findings = "\n".join(text_parts)
-                    break
+    # Parse structured findings from all AI text collected during the stream
+    full_text = "\n".join(all_ai_text)
+    new_findings = _parse_structured_findings(full_text)
+    raw_findings = _strip_marker_blocks(full_text)
 
-    return {**state, "investigation_findings": findings}
+    # For re-investigation: merge new findings with prior
+    if investigation_round > 0:
+        prior = state.get("exploration_findings", {})
+        exploration_findings = _merge_findings(prior, new_findings)
+        investigation_findings = (
+            state.get("investigation_findings", "") + "\n\n---\n\n" + raw_findings
+        ).strip()
+    else:
+        exploration_findings = new_findings
+        investigation_findings = raw_findings
+
+    return {
+        **state,
+        "investigation_findings": investigation_findings,
+        "exploration_findings": exploration_findings,
+        "cross_column_findings": exploration_findings.get("cross_column_findings", []),
+    }

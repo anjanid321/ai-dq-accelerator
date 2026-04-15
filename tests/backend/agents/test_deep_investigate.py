@@ -659,3 +659,172 @@ def test_merge_findings_cross_uses_has_new_data_gate():
     result = _merge_findings(prior, new)
     # has_new_data is False, so cross_column_findings should come from prior
     assert result["cross_column_findings"][0]["columns"] == ["A", "B"]
+
+
+# ---------------------------------------------------------------------------
+# deep_investigate_node — exploration_findings output (Task 3)
+# ---------------------------------------------------------------------------
+
+def _make_state_full(session_id: str = "test-session") -> dict:
+    """Full state dict with all ProfileAnalyzerState fields."""
+    return {
+        "session_id": session_id,
+        "use_case": "HR employee records",
+        "description": None,
+        "target_column": None,
+        "overview_notes": "Dataset has 5 columns.",
+        "columns_to_investigate": [{"column": "email", "reason": "format"}],
+        "investigation_findings": "",
+        "cross_column_findings": [],
+        "exploration_findings": {},
+        "exploration_notebook_path": "",
+        "investigation_feedback": None,
+        "investigation_round": 0,
+        "data_passport": "",
+        "ai_summary": "",
+        "suggested_rules": [],
+        "top_issues": [],
+        "rule_revision_log": [],
+    }
+
+
+import json as _json_module
+
+
+def _make_col_finding_text(column: str, viz_code: str = "") -> str:
+    obj = {
+        "column": column,
+        "semantic_meaning": f"Meaning of {column}",
+        "data_type_actual": "text",
+        "stats": {"null_count": 5, "null_pct": 0.5, "distinct_count": 99, "total_rows": 100},
+        "full_analysis": f"{column} has issues",
+        "issues": [],
+        "assumptions": [],
+        "rule_implications": [],
+        "visualization_code": viz_code or f"# {column}_viz\nplt.show()",
+    }
+    return f"===COLUMN_FINDING_START===\n{_json_module.dumps(obj)}\n===COLUMN_FINDING_END==="
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_node_populates_exploration_findings_from_markers(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    ai_msg = MagicMock(spec=AIMessage)
+    ai_msg.content = _make_col_finding_text("email")
+    ai_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [ai_msg]}])
+    mock_build.return_value = mock_agent
+
+    result = deep_investigate_node(_make_state_full())
+
+    assert "column_findings" in result["exploration_findings"]
+    assert len(result["exploration_findings"]["column_findings"]) == 1
+    assert result["exploration_findings"]["column_findings"][0]["column"] == "email"
+    assert "email_viz" in result["exploration_findings"]["column_findings"][0]["visualization_code"]
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_node_strips_markers_from_investigation_findings(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    ai_msg = MagicMock(spec=AIMessage)
+    ai_msg.content = "Some prose.\n" + _make_col_finding_text("email") + "\nMore prose."
+    ai_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [ai_msg]}])
+    mock_build.return_value = mock_agent
+
+    result = deep_investigate_node(_make_state_full())
+
+    assert "COLUMN_FINDING" not in result["investigation_findings"]
+    assert "Some prose." in result["investigation_findings"]
+    assert "More prose." in result["investigation_findings"]
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_node_merges_findings_in_reinvestigation_round(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    ai_msg = MagicMock(spec=AIMessage)
+    ai_msg.content = _make_col_finding_text("salary")  # only salary re-investigated
+    ai_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [ai_msg]}])
+    mock_build.return_value = mock_agent
+
+    state = _make_state_full()
+    state["investigation_round"] = 1
+    state["investigation_feedback"] = "Check salary more carefully"
+    state["exploration_findings"] = {
+        "column_findings": [
+            {
+                "column": "email",
+                "visualization_code": "# email prior",
+                "semantic_meaning": "email",
+                "data_type_actual": "text",
+                "stats": {},
+                "full_analysis": "email findings",
+                "issues": [],
+                "assumptions": [],
+                "rule_implications": [],
+            },
+        ],
+        "cross_column_findings": [],
+        "open_questions": [],
+        "readiness_assessment": "unknown",
+        "key_risks": [],
+    }
+
+    result = deep_investigate_node(state)
+
+    col_map = {cf["column"]: cf for cf in result["exploration_findings"]["column_findings"]}
+    assert "email" in col_map          # prior preserved
+    assert "salary" in col_map         # new one added
+    assert col_map["email"]["visualization_code"] == "# email prior"
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_node_exploration_findings_empty_when_no_markers(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+    ai_msg = MagicMock(spec=AIMessage)
+    ai_msg.content = "Just prose, no markers."
+    ai_msg.tool_calls = []
+    mock_agent.stream.return_value = iter([{"messages": [ai_msg]}])
+    mock_build.return_value = mock_agent
+
+    result = deep_investigate_node(_make_state_full())
+
+    assert isinstance(result["exploration_findings"], dict)
+    assert result["exploration_findings"]["column_findings"] == []
+
+
+@patch("backend.agents.graphs.deep_investigate._emit")
+@patch("backend.agents.graphs.deep_investigate._build_deep_investigate_agent")
+def test_node_collects_text_from_multiple_messages(mock_build, mock_emit):
+    from backend.agents.graphs.deep_investigate import deep_investigate_node
+    mock_agent = MagicMock()
+
+    msg1 = MagicMock(spec=AIMessage)
+    msg1.content = _make_col_finding_text("email")
+    msg1.tool_calls = []
+
+    msg2 = MagicMock(spec=AIMessage)
+    msg2.content = _make_col_finding_text("salary")
+    msg2.tool_calls = []
+
+    # Simulate streaming: chunk1 has msg1, chunk2 has both messages
+    mock_agent.stream.return_value = iter([
+        {"messages": [msg1]},
+        {"messages": [msg1, msg2]},
+    ])
+    mock_build.return_value = mock_agent
+
+    result = deep_investigate_node(_make_state_full())
+
+    cols = {cf["column"] for cf in result["exploration_findings"]["column_findings"]}
+    assert "email" in cols
+    assert "salary" in cols
