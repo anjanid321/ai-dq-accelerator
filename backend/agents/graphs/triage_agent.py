@@ -16,7 +16,7 @@ from langgraph.graph import END, StateGraph
 
 from backend.agents.emit import emit as _emit
 from backend.agents.retry import call_claude_with_retry
-from backend.agents.prompts import TRIAGE_SYSTEM_PROMPT
+from backend.agents.prompts import TRIAGE_SYSTEM_PROMPT, TRIAGE_CONTRADICTION_SYSTEM
 from backend.agents.state import TriageAgentState
 from dq_tools.explorer import (
     EXPLORER_TOOLS,
@@ -135,6 +135,51 @@ def _validate_classifications(classifications: list[dict], failing_rules: list[d
     return clean
 
 
+def _detect_triage_contradictions(
+    client: anthropic.Anthropic,
+    session_id: str,
+    classifications: list[dict],
+    failing_rules: list[dict],
+    use_case: str,
+) -> list[dict]:
+    """Single LLM call to detect fix-cascade contradictions among classified failing rules.
+
+    Returns a list of contradiction dicts. Returns [] on any failure — never raises.
+    Skips the call entirely when fewer than 2 rules are present.
+    """
+    if len(classifications) < 2:
+        return []
+
+    try:
+        response = call_claude_with_retry(
+            client,
+            model=MODEL,
+            max_tokens=4096,
+            system=TRIAGE_CONTRADICTION_SYSTEM,
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"Use case: {use_case}\n\n"
+                        f"Classified failing rules:\n```json\n{json.dumps(classifications, indent=2, default=str)}\n```\n\n"
+                        f"Full rule details:\n```json\n{json.dumps(failing_rules, indent=2, default=str)}\n```\n\n"
+                        "Identify fix-cascade contradictions. Output only the JSON object."
+                    ),
+                }
+            ],
+        )
+        text = "".join(b.text for b in response.content if hasattr(b, "text"))
+        parsed = _parse_json(text)
+        if isinstance(parsed, dict) and isinstance(parsed.get("contradictions"), list):
+            return parsed["contradictions"]
+        if isinstance(parsed, list):
+            return parsed
+        logger.warning("[triage_contradiction:%s] Unparseable response", session_id[:8])
+    except Exception as exc:
+        logger.warning("[triage_contradiction:%s] Failed: %s", session_id[:8], exc)
+    return []
+
+
 def triage_node(state: TriageAgentState) -> TriageAgentState:
     """Tool-calling loop: investigate each failing rule and classify it."""
     client = anthropic.Anthropic()
@@ -145,7 +190,7 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
     emit(session_id, "thinking", text=f"Triaging {len(failing_rules)} failing rules...")
 
     if not failing_rules:
-        return {**state, "classifications": [], "summary": _build_summary([])}
+        return {**state, "classifications": [], "summary": _build_summary([]), "contradictions": []}
 
     # Slim down sample_failing_rows to keep context manageable
     rules_for_prompt = []
@@ -260,6 +305,10 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
     classifications = _validate_classifications(classifications, failing_rules)
     summary = _build_summary(classifications)
 
+    contradictions = _detect_triage_contradictions(
+        client, session_id, classifications, failing_rules, use_case
+    )
+
     emit(
         session_id,
         "done",
@@ -267,9 +316,10 @@ def triage_node(state: TriageAgentState) -> TriageAgentState:
         threshold_too_strict=summary["threshold_too_strict"],
         unfixable=summary["unfixable"],
         eval_error=summary["eval_error"],
+        contradictions_found=len(contradictions),
     )
 
-    return {**state, "classifications": classifications, "summary": summary}
+    return {**state, "classifications": classifications, "summary": summary, "contradictions": contradictions}
 
 
 def build_triage_graph():
@@ -289,15 +339,17 @@ def run_triage_agent(session_id: str, failing_rules: list[dict], use_case: str) 
         "use_case": use_case,
         "classifications": [],
         "summary": {},
+        "contradictions": [],
     }
     try:
         result = app.invoke(initial_state)
         return {
             "classifications": result.get("classifications", []),
             "summary": result.get("summary", {}),
+            "contradictions": result.get("contradictions", []),
         }
     except Exception as exc:
         logger.error("[triage:%s] Agent failed: %s", session_id[:8], exc)
         # Fallback: classify everything as transform_fixable
         fallback = _validate_classifications([], failing_rules)
-        return {"classifications": fallback, "summary": _build_summary(fallback)}
+        return {"classifications": fallback, "summary": _build_summary(fallback), "contradictions": []}
