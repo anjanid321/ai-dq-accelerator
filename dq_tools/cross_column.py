@@ -104,7 +104,7 @@ def pairwise_profile(session_id: str, col_a: str, col_b: str) -> dict:
             return {"error": f"Column '{col}' not found. Available: {list(df.columns)}"}
 
     def _is_num(s: pd.Series) -> bool:
-        return pd.api.types.is_numeric_dtype(s)
+        return pd.api.types.is_numeric_dtype(s) and not pd.api.types.is_bool_dtype(s)
 
     a_num, b_num = _is_num(df[col_a]), _is_num(df[col_b])
     if a_num and b_num:
@@ -131,8 +131,14 @@ def pairwise_profile(session_id: str, col_a: str, col_b: str) -> dict:
         top_b = df[col_b].value_counts().head(10).index.tolist()
         filt = df[df[col_a].isin(top_a) & df[col_b].isin(top_b)]
         xtab = pd.crosstab(filt[col_a], filt[col_b])
+        # Convert all keys to str — pd.crosstab preserves the source column dtype
+        # (e.g. numpy.int64, numpy.bool_) which cannot be JSON-serialized as dict keys.
+        crosstab = {
+            str(col): {str(idx): int(val) for idx, val in col_data.items()}
+            for col, col_data in xtab.items()
+        }
         return {"type": "categorical_vs_categorical", "col_a": col_a, "col_b": col_b,
-                "note": "Top 10 values of each column", "crosstab": xtab.to_dict()}
+                "note": "Top 10 values of each column", "crosstab": crosstab}
     else:
         cat_col, num_col = (col_a, col_b) if not a_num else (col_b, col_a)
         top_cats = df[cat_col].value_counts().head(15).index.tolist()
@@ -176,9 +182,9 @@ def compute_correlation_matrix(
         missing = [c for c in columns if c not in df.columns]
         if missing:
             return {"error": f"Columns not found: {missing}"}
-        numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
+        numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c]) and not pd.api.types.is_bool_dtype(df[c])]
     else:
-        numeric_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])][:20]
+        numeric_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and not pd.api.types.is_bool_dtype(df[c])][:20]
     if len(numeric_cols) < 2:
         return {"error": f"Need ≥ 2 numeric columns. Found: {numeric_cols}"}
     corr_m = df[numeric_cols].corr()
