@@ -39,7 +39,7 @@ Do NOT propose rules or fixes. Just investigate and accumulate findings.
 
 ## Structured Output Protocol
 
-After finishing each column's investigation (before moving to the next column), emit a structured block:
+After finishing each column's investigation (before moving to the next column), emit a structured block. In re-investigation rounds, only emit blocks for columns you actually re-investigated — skip unchanged columns:
 
 ===COLUMN_FINDING_START===
 {
@@ -103,6 +103,8 @@ The notebook environment has these variables already in scope:
 
 Always end with `plt.tight_layout()` then `plt.show()`.
 Keep code under 80 lines.
+
+**Important:** The `visualization_code` value must be a valid JSON string. Use `\n` (backslash-n) for line breaks — do NOT emit a literal multi-line string inside the JSON block.
 
 **Always use case-insensitive column resolution:**
 ```python
@@ -374,7 +376,8 @@ Parse the investigation text and produce a JSON object with EXACTLY this schema:
         }
       ],
       "assumptions": ["<inference that business context could change>"],
-      "rule_implications": ["<direction for a potential DQ rule, including suggested threshold>"]
+      "rule_implications": ["<direction for a potential DQ rule, including suggested threshold>"],
+      "visualization_code": "<Python code using df, con, plt, pd, np that visualizes the key finding, or null>"
     }
   ],
   "cross_column_findings": [
@@ -384,7 +387,8 @@ Parse the investigation text and produce a JSON object with EXACTLY this schema:
       "pattern": "<concise one-sentence description of the pattern>",
       "severity": "critical|warning|info",
       "investigation_sql": "<SQL SELECT that reveals this pattern, or null>",
-      "rule_implications": ["<direction for a potential DQ rule>"]
+      "rule_implications": ["<direction for a potential DQ rule>"],
+      "visualization_code": "<Python code using df, con, plt, pd, np that visualizes this cross-column pattern, or null>"
     }
   ],
   "open_questions": ["<explicit uncertainty where business context would change interpretation>"],
