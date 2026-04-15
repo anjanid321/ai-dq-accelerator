@@ -331,7 +331,7 @@ def build_triage_graph():
 
 
 def run_triage_agent(session_id: str, failing_rules: list[dict], use_case: str) -> dict:
-    """Run triage agent. Returns {classifications, summary}."""
+    """Run triage agent. Returns {classifications, summary, contradictions}."""
     app = build_triage_graph()
     initial_state: TriageAgentState = {
         "session_id": session_id,
