@@ -25,6 +25,8 @@ class ProfileAnalyzerState(TypedDict):
     ai_summary: str
     suggested_rules: list[dict]
     top_issues: list[str]
+    # Phase 4b: rule review (pre-approval contradiction resolution)
+    rule_revision_log: list[dict]           # [{rule_ids, conflict_type, description, resolution, original_rules}]
 
 
 class ValidationAnalyzerState(TypedDict):
@@ -65,6 +67,7 @@ class TriageAgentState(TypedDict):
     # Outputs
     classifications: list[dict]
     summary: dict               # {transform_fixable, threshold_too_strict, unfixable, eval_error}
+    contradictions: list[dict]  # [{rule_ids, conflict_type, description, suggested_fix}]
 
 
 class ScorecardNarratorState(TypedDict):
