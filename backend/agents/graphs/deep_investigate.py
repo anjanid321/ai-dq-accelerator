@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Optional
@@ -180,7 +181,6 @@ def _extract_ai_text(msg: AIMessage) -> str:
 
 def _strip_marker_blocks(text: str) -> str:
     """Remove all ===*_START=== ... ===*_END=== blocks, leaving only prose."""
-    import re
     for start, end in [
         ("===COLUMN_FINDING_START===", "===COLUMN_FINDING_END==="),
         ("===CROSS_COLUMN_FINDING_START===", "===CROSS_COLUMN_FINDING_END==="),
@@ -190,7 +190,6 @@ def _strip_marker_blocks(text: str) -> str:
             re.escape(start) + r"[\s\S]*?" + re.escape(end),
             "",
             text,
-            flags=re.DOTALL,
         )
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
@@ -200,8 +199,6 @@ def _parse_structured_findings(text: str) -> dict:
 
     Returns an ExplorationFindings-shaped dict. Returns a minimal valid structure on any failure.
     """
-    import re
-
     def _extract_blocks(start_marker: str, end_marker: str) -> list:
         pattern = re.compile(
             re.escape(start_marker) + r"\s*([\s\S]*?)\s*" + re.escape(end_marker)
@@ -244,18 +241,23 @@ def _merge_findings(prior: dict, new: dict) -> dict:
     New column_findings override prior ones by column name.
     Cross-column and summary fields come from new if new has any column_findings, else prior.
     """
-    prior_cols: dict = {cf["column"]: cf for cf in prior.get("column_findings", [])}
+    prior_cols: dict = {
+        cf["column"]: cf
+        for cf in prior.get("column_findings", [])
+        if cf.get("column")
+    }
     for cf in new.get("column_findings", []):
-        prior_cols[cf["column"]] = cf
+        if cf.get("column"):
+            prior_cols[cf["column"]] = cf
 
     has_new_data = bool(new.get("column_findings"))
     return {
         "column_findings": list(prior_cols.values()),
         "cross_column_findings": (
-            new.get("cross_column_findings") or prior.get("cross_column_findings", [])
+            new.get("cross_column_findings", []) if has_new_data else prior.get("cross_column_findings", [])
         ),
         "open_questions": (
-            new.get("open_questions") if has_new_data else prior.get("open_questions", [])
+            new.get("open_questions", []) if has_new_data else prior.get("open_questions", [])
         ),
         "readiness_assessment": (
             new.get("readiness_assessment", "unknown")
@@ -263,7 +265,7 @@ def _merge_findings(prior: dict, new: dict) -> dict:
             else prior.get("readiness_assessment", "unknown")
         ),
         "key_risks": (
-            new.get("key_risks") if has_new_data else prior.get("key_risks", [])
+            new.get("key_risks", []) if has_new_data else prior.get("key_risks", [])
         ),
     }
 

@@ -586,3 +586,76 @@ def test_merge_findings_new_cross_overrides_prior():
     }
     result = _merge_findings(prior, new)
     assert result["cross_column_findings"][0]["columns"] == ["C", "D"]
+
+
+def test_merge_findings_none_open_questions_defaults_to_list():
+    from backend.agents.graphs.deep_investigate import _merge_findings
+    # new dict is missing open_questions and key_risks keys entirely
+    prior = {
+        "column_findings": [],
+        "cross_column_findings": [],
+        "open_questions": ["prior question"],
+        "readiness_assessment": "moderate",
+        "key_risks": ["prior risk"],
+    }
+    new = {
+        "column_findings": [{"column": "x", "visualization_code": ""}],
+        "cross_column_findings": [],
+        # open_questions and key_risks intentionally absent
+        "readiness_assessment": "good",
+    }
+    result = _merge_findings(prior, new)
+    # Should not be None — should be an empty list (or prior, since new has no value)
+    assert result["open_questions"] is not None
+    assert isinstance(result["open_questions"], list)
+    assert result["key_risks"] is not None
+    assert isinstance(result["key_risks"], list)
+
+
+def test_merge_findings_skips_column_entries_without_column_key():
+    from backend.agents.graphs.deep_investigate import _merge_findings
+    prior = {
+        "column_findings": [{"column": "email", "visualization_code": "e"}],
+        "cross_column_findings": [],
+        "open_questions": [],
+        "readiness_assessment": "unknown",
+        "key_risks": [],
+    }
+    new = {
+        "column_findings": [
+            {"visualization_code": "bad"},  # missing "column" key
+            {"column": "salary", "visualization_code": "s"},
+        ],
+        "cross_column_findings": [],
+        "open_questions": [],
+        "readiness_assessment": "good",
+        "key_risks": [],
+    }
+    # Should not raise KeyError; should process salary, skip the bad entry
+    result = _merge_findings(prior, new)
+    col_names = {cf["column"] for cf in result["column_findings"]}
+    assert "salary" in col_names
+    assert "email" in col_names
+
+
+def test_merge_findings_cross_uses_has_new_data_gate():
+    from backend.agents.graphs.deep_investigate import _merge_findings
+    # new has no column_findings (has_new_data=False), but has cross_column_findings
+    # Prior cross should be kept since has_new_data is False
+    prior = {
+        "column_findings": [{"column": "email", "visualization_code": "e"}],
+        "cross_column_findings": [{"columns": ["A", "B"], "pattern": "prior"}],
+        "open_questions": [],
+        "readiness_assessment": "moderate",
+        "key_risks": [],
+    }
+    new = {
+        "column_findings": [],  # no new column findings → has_new_data = False
+        "cross_column_findings": [{"columns": ["C", "D"], "pattern": "new"}],
+        "open_questions": [],
+        "readiness_assessment": "good",
+        "key_risks": [],
+    }
+    result = _merge_findings(prior, new)
+    # has_new_data is False, so cross_column_findings should come from prior
+    assert result["cross_column_findings"][0]["columns"] == ["A", "B"]
