@@ -160,12 +160,21 @@ def test_build_notebook_uses_visualization_code_for_column(session_id):
 def test_build_notebook_falls_back_to_generic_chart_when_no_viz_code(session_id):
     from backend.agents.graphs.exploration_notebook import _build_notebook
 
-    # SAMPLE_FINDINGS column_findings has no visualization_code key
+    # SAMPLE_FINDINGS column_findings has no visualization_code key; data_type_actual is "text"
+    # so the generic _distribution_cell fallback renders a value_counts bar chart.
     nb = _build_notebook(session_id, SAMPLE_FINDINGS, "raw text")
     code_sources = [c.source for c in nb.cells if c.cell_type == "code"]
-    # Should still have a code cell for the column (generic _distribution_cell fallback)
-    non_setup = [s for s in code_sources if "SESSION_DB" not in s]
-    assert len(non_setup) > 0
+    assert any("value_counts" in s for s in code_sources)
+
+
+def test_build_notebook_falls_back_to_sql_chart_for_cross_column_when_no_viz_code(session_id):
+    from backend.agents.graphs.exploration_notebook import _build_notebook
+
+    # SAMPLE_FINDINGS cross_column_findings has investigation_sql but no visualization_code;
+    # the fallback _cross_column_viz_cell wraps the SQL in con.execute(...).
+    nb = _build_notebook(session_id, SAMPLE_FINDINGS, "raw text")
+    code_sources = [c.source for c in nb.cells if c.cell_type == "code"]
+    assert any("SELECT EmployeeGroup" in s for s in code_sources)
 
 
 def test_build_notebook_uses_visualization_code_for_cross_column(session_id):
