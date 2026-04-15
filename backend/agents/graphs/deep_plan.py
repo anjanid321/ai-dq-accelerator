@@ -20,7 +20,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.errors import GraphRecursionError
 from langgraph.prebuilt import ToolRuntime
 
-from backend.agents.emit import emit as _emit
+from backend.agents.emit import _find_project_root, emit as _emit
 from backend.agents.prompts import TRANSFORM_PLANNER_SYSTEM
 import dq_tools.explorer as _explorer
 from deepagents.graph import create_deep_agent
@@ -165,7 +165,6 @@ def dq_validate_prebuilt_spec(
     Custom steps (type='custom') do not need validation — skip this tool for them.
     """
     import duckdb
-    from dq_tools.profiler import _find_project_root
     from dq_tools.transformation_executor import validate_transform_spec
 
     try:
@@ -184,6 +183,9 @@ def dq_validate_prebuilt_spec(
             sample_df = conn.execute("SELECT * FROM working_data ORDER BY RANDOM() LIMIT 50").df()
     except Exception as exc:
         return json.dumps({"valid": False, "error": f"Could not load data sample: {exc}"})
+
+    if sample_df.empty:
+        return json.dumps({"valid": False, "error": "Data sample is empty — cannot validate spec."})
 
     _, error = validate_transform_spec(spec, sample_df)
     if error is None:
