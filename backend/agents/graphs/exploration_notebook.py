@@ -130,6 +130,59 @@ except Exception as e:
     print(f"Visualization error: {{e}}")""".strip()
 
 
+_OVERVIEW_CELL = """\
+# --- Missing values overview ---
+missing = df.isnull().sum().sort_values(ascending=False)
+missing_pct = (missing / len(df) * 100).round(2)
+mv = pd.DataFrame({'missing_count': missing, 'missing_pct': missing_pct})
+mv = mv[mv['missing_count'] > 0]
+if len(mv) > 0:
+    fig, ax = plt.subplots(figsize=(10, max(3, len(mv) * 0.4)))
+    ax.barh(mv.index, mv['missing_pct'], color='#e07b39', alpha=0.8)
+    ax.set_xlabel('Missing %')
+    ax.set_title('Missing Values by Column')
+    ax.invert_yaxis()
+    for i, (col, pct) in enumerate(zip(mv.index, mv['missing_pct'])):
+        ax.text(pct + 0.3, i, f'{pct:.1f}%', va='center', fontsize=8)
+    plt.tight_layout()
+    plt.show()
+    print(mv.to_string())
+else:
+    print("No missing values found.")
+
+# --- Numeric correlation matrix ---
+numeric_df = df.select_dtypes(include='number')
+if len(numeric_df.columns) >= 2:
+    corr = numeric_df.corr()
+    fig, ax = plt.subplots(figsize=(min(14, len(corr.columns) + 2), min(12, len(corr.columns) + 1)))
+    im = ax.imshow(corr.values, cmap='RdYlGn', vmin=-1, vmax=1, aspect='auto')
+    plt.colorbar(im, ax=ax, shrink=0.8)
+    ax.set_xticks(range(len(corr.columns)))
+    ax.set_yticks(range(len(corr.columns)))
+    ax.set_xticklabels(corr.columns, rotation=45, ha='right', fontsize=8)
+    ax.set_yticklabels(corr.columns, fontsize=8)
+    ax.set_title('Numeric Correlation Matrix')
+    for i in range(len(corr.columns)):
+        for j in range(len(corr.columns)):
+            val = corr.values[i, j]
+            ax.text(j, i, f'{val:.2f}', ha='center', va='center', fontsize=7,
+                    color='black' if abs(val) < 0.7 else 'white')
+    plt.tight_layout()
+    plt.show()
+    # Strong correlations (|r| >= 0.7, excluding self)
+    strong = [(corr.columns[i], corr.columns[j], corr.values[i, j])
+              for i in range(len(corr.columns)) for j in range(i+1, len(corr.columns))
+              if abs(corr.values[i, j]) >= 0.7]
+    if strong:
+        print("Strong correlations (|r| >= 0.7):")
+        for a, b, r in sorted(strong, key=lambda x: -abs(x[2])):
+            print(f"  {a} × {b}: r={r:.3f}")
+    else:
+        print("No strong correlations (|r| >= 0.7) found among numeric columns.")
+else:
+    print("Fewer than 2 numeric columns — correlation matrix skipped.")""".strip()
+
+
 def _build_notebook(
     session_id: str,
     exploration_findings: dict,
@@ -141,6 +194,14 @@ def _build_notebook(
     # Title + setup
     cells.append(new_markdown_cell(f"# Data Exploration Report\n\n**Session:** `{session_id}`"))
     cells.append(new_code_cell(_setup_cell(session_id)))
+
+    # Semantic overview: missing values + correlation matrix
+    cells.append(new_markdown_cell(
+        "## Dataset Overview\n\n"
+        "Missing values per column and numeric correlation matrix — "
+        "high correlations may indicate redundant features or compound rules."
+    ))
+    cells.append(new_code_cell(_OVERVIEW_CELL))
 
     # Open questions — pinned at top
     open_questions = exploration_findings.get("open_questions", [])

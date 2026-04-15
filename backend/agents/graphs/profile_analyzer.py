@@ -347,7 +347,7 @@ def structure_findings_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState
     response = call_claude_with_retry(
         client,
         model="claude-sonnet-4-6",
-        max_tokens=8192,
+        max_tokens=16384,
         temperature=0,
         system=STRUCTURE_FINDINGS_SYSTEM,
         messages=[
@@ -592,6 +592,7 @@ def run_profile_analyzer(
         "ai_summary": "",
         "suggested_rules": [],
         "top_issues": [],
+        "rule_revision_log": [],
     }
 
     try:

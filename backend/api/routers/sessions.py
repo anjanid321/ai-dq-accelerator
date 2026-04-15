@@ -187,19 +187,26 @@ async def get_investigation_progress(session_id: str, since: int = 0):
 
 
 @router.get("/sessions/{session_id}/investigation/stream")
-async def stream_investigation_progress(session_id: str):
+async def stream_investigation_progress(session_id: str, request: Request):
     """Server-Sent Events stream of investigation progress.
 
     Connect once; receives all past events immediately then live events as they
     are written.  The stream ends when a ``done`` event is received.
+
+    Supports Last-Event-ID for reconnects — the browser sends the ID of the last
+    event it received and the stream resumes from the next one, preventing replay.
     """
     import asyncio
 
     project_root = _project_root()
     progress_path = project_root / "data" / "sessions" / session_id / "investigation_progress.jsonl"
 
+    # Resume from after the last event the client already received
+    last_event_id = request.headers.get("last-event-id", "")
+    initial_seen = int(last_event_id) + 1 if last_event_id.lstrip("-").isdigit() else 0
+
     async def event_generator():
-        seen = 0
+        seen = max(0, initial_seen)
         max_wait = 600  # give up after 10 minutes with no activity
         idle = 0
         last_send = 0.0
@@ -226,8 +233,8 @@ async def stream_investigation_progress(session_id: str):
                     line = line.strip()
                     if not line:
                         continue
+                    yield f"id: {seen}\ndata: {line}\n\n"
                     seen += 1
-                    yield f"data: {line}\n\n"
                     try:
                         evt = json.loads(line)
                         if evt.get("event") == "done":
