@@ -28,6 +28,7 @@ from backend.temporal.activities.investigation_activities import (  # noqa: E402
     profile_and_investigate_activity,
     synthesize_and_propose_activity,
     reinvestigate_activity,
+    review_rules_activity,
 )
 from backend.temporal.activities.transform_activities import (  # noqa: E402
     suggest_next_transformation_activity,
@@ -68,6 +69,7 @@ async def main():
             profile_and_investigate_activity,
             synthesize_and_propose_activity,
             reinvestigate_activity,
+            review_rules_activity,
             run_validation_activity,
             detect_anomalies_activity,
             analyze_and_prioritize_activity,
