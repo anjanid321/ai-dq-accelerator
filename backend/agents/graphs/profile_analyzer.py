@@ -343,6 +343,9 @@ def structure_findings_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState
     """
     ef = state.get("exploration_findings", {})
     col_findings = ef.get("column_findings", [])
+    # The fallback path writes a single {"column": "__raw__"} entry.
+    # A non-empty list whose first entry is not __raw__ means the inline
+    # marker protocol populated real findings — skip the LLM extraction.
     if col_findings and col_findings[0].get("column") != "__raw__":
         logger.info(
             "[structure_findings:%s] Inline extraction already populated — skipping LLM call",
