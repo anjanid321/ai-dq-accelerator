@@ -138,3 +138,48 @@ def test_generate_exploration_notebook_writes_files(session_id, tmp_path):
     assert Path(html_path).exists()
     assert ipynb_path.endswith(".ipynb")
     assert html_path.endswith(".html")
+
+
+def test_build_notebook_uses_visualization_code_for_column(session_id):
+    from backend.agents.graphs.exploration_notebook import _build_notebook
+
+    findings = {
+        **SAMPLE_FINDINGS,
+        "column_findings": [
+            {
+                **SAMPLE_FINDINGS["column_findings"][0],
+                "visualization_code": "# MY_CUSTOM_VIZ_MARKER\nprint('done')",
+            }
+        ],
+    }
+    nb = _build_notebook(session_id, findings, "raw text")
+    code_sources = [c.source for c in nb.cells if c.cell_type == "code"]
+    assert any("MY_CUSTOM_VIZ_MARKER" in s for s in code_sources)
+
+
+def test_build_notebook_falls_back_to_generic_chart_when_no_viz_code(session_id):
+    from backend.agents.graphs.exploration_notebook import _build_notebook
+
+    # SAMPLE_FINDINGS column_findings has no visualization_code key
+    nb = _build_notebook(session_id, SAMPLE_FINDINGS, "raw text")
+    code_sources = [c.source for c in nb.cells if c.cell_type == "code"]
+    # Should still have a code cell for the column (generic _distribution_cell fallback)
+    non_setup = [s for s in code_sources if "SESSION_DB" not in s]
+    assert len(non_setup) > 0
+
+
+def test_build_notebook_uses_visualization_code_for_cross_column(session_id):
+    from backend.agents.graphs.exploration_notebook import _build_notebook
+
+    findings = {
+        **SAMPLE_FINDINGS,
+        "cross_column_findings": [
+            {
+                **SAMPLE_FINDINGS["cross_column_findings"][0],
+                "visualization_code": "# CROSS_COL_VIZ_MARKER\nprint('cross')",
+            }
+        ],
+    }
+    nb = _build_notebook(session_id, findings, "raw text")
+    code_sources = [c.source for c in nb.cells if c.cell_type == "code"]
+    assert any("CROSS_COL_VIZ_MARKER" in s for s in code_sources)

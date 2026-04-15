@@ -284,10 +284,14 @@ def _build_notebook(
             f"{issues_md}{assumptions_md}{rule_md}"
         ))
 
-        # Distribution plot
-        cells.append(new_code_cell(
-            _distribution_cell(column, cf.get("data_type_actual", "text"), issues)
-        ))
+        # Visualization — prefer AI-generated code, fall back to generic chart
+        viz_code = cf.get("visualization_code", "").strip()
+        if viz_code:
+            cells.append(new_code_cell(viz_code))
+        else:
+            cells.append(new_code_cell(
+                _distribution_cell(column, cf.get("data_type_actual", "text"), issues)
+            ))
 
         # Failing rows tables
         for issue in issues:
@@ -316,9 +320,11 @@ def _build_notebook(
                 f"**Pattern:** {finding.get('pattern', '')}"
                 f"{rule_md}"
             ))
-            sql = finding.get("investigation_sql")
-            if sql:
-                cells.append(new_code_cell(_cross_column_viz_cell(i, cols, sql)))
+            viz_code = finding.get("visualization_code", "").strip()
+            if viz_code:
+                cells.append(new_code_cell(viz_code))
+            elif finding.get("investigation_sql"):
+                cells.append(new_code_cell(_cross_column_viz_cell(i, cols, finding["investigation_sql"])))
 
     # Preliminary rule implications
     all_implications = []
