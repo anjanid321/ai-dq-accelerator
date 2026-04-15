@@ -35,7 +35,95 @@ Before concluding, explicitly state your assumptions — any inference you made 
 
 You are done when you can describe every column in plain language: what it represents, what values it contains, and what quality issues exist. You have also tested systematic cross-column hypotheses.
 
-Do NOT propose rules or fixes. Just investigate and accumulate findings."""
+Do NOT propose rules or fixes. Just investigate and accumulate findings.
+
+## Structured Output Protocol
+
+After finishing each column's investigation (before moving to the next column), emit a structured block:
+
+===COLUMN_FINDING_START===
+{
+  "column": "<exact column name as it appears in the dataset>",
+  "semantic_meaning": "<what this column represents in the business context>",
+  "data_type_actual": "<text|numeric|categorical|date|boolean|id>",
+  "stats": {
+    "null_count": <integer or null>,
+    "null_pct": <float 0-100 or null>,
+    "distinct_count": <integer or null>,
+    "total_rows": <integer or null>
+  },
+  "full_analysis": "<your complete prose analysis — preserve all counts, percentages, sample values>",
+  "issues": [
+    {
+      "description": "<exact description with counts as you found them>",
+      "severity": "critical|warning|info",
+      "count": <integer or null>,
+      "pct": <float or null>,
+      "sample_values": ["<value>"],
+      "where_clause": "<DuckDB WHERE condition without WHERE keyword, or null>"
+    }
+  ],
+  "assumptions": ["<inference where business context could change interpretation>"],
+  "rule_implications": ["<direction for a potential DQ rule, with threshold if applicable>"],
+  "visualization_code": "<see guidelines below>"
+}
+===COLUMN_FINDING_END===
+
+After all cross-column investigation, emit a block for each cross-column finding:
+
+===CROSS_COLUMN_FINDING_START===
+{
+  "columns": ["<col1>", "<col2>"],
+  "full_analysis": "<complete analysis text>",
+  "pattern": "<one-sentence description of the pattern>",
+  "severity": "critical|warning|info",
+  "investigation_sql": "<SQL SELECT that reveals this pattern, or null>",
+  "rule_implications": ["<direction for a DQ rule>"],
+  "visualization_code": "<see guidelines below>"
+}
+===CROSS_COLUMN_FINDING_END===
+
+Finally, emit the exploration summary:
+
+===EXPLORATION_SUMMARY_START===
+{
+  "open_questions": ["<explicit uncertainty where business context matters — only real unknowns>"],
+  "readiness_assessment": "good|moderate|poor",
+  "key_risks": ["<specific risk to ML-readiness or downstream analysis>"]
+}
+===EXPLORATION_SUMMARY_END===
+
+### visualization_code guidelines
+
+The notebook environment has these variables already in scope:
+- `df` — pandas DataFrame of the full dataset
+- `con` — DuckDB connection (read-only) to the same data
+- `plt`, `pd`, `np` — matplotlib.pyplot, pandas, numpy
+- All imports are done. Do not add import statements.
+
+Always end with `plt.tight_layout()` then `plt.show()`.
+Keep code under 80 lines.
+
+**Always use case-insensitive column resolution:**
+```python
+_col = next((c for c in df.columns if c.lower() == "column_name".lower()), None)
+if _col is None:
+    print("Column 'column_name' not found in dataset")
+else:
+    # visualization code here
+```
+
+**Choose the visualization type to match what you found:**
+- Format/validity issues: horizontal bar chart of top value_counts; highlight invalid values in orange (#e07b39)
+- Nulls conditional on another column: bar chart of null% grouped by the conditioning column
+- Numeric distribution with outliers/clusters: histogram with mean/median/p5/p95 vertical lines
+- Date range or temporal pattern: bar chart grouped by year or month
+- Categorical distribution: top-N value counts horizontal bar chart
+- Cross-column SQL pattern: `result = con.execute("YOUR SQL").df()` then plot result columns
+- Correlated nulls: side-by-side grouped bar showing null co-occurrence
+- Group-over-time (category rename): stacked bar or line chart of group shares per time bin
+
+For re-investigation rounds, emit ===COLUMN_FINDING_START=== blocks only for columns you re-investigated. Do not re-emit blocks for columns whose findings are unchanged."""
 
 PROFILE_SYNTHESIZE_SYSTEM = """You are writing a data passport — a factual, specific description of a dataset based on direct investigation.
 
