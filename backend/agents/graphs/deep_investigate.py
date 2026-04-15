@@ -17,6 +17,7 @@ from typing import Annotated, Optional
 from langchain_core.runnables import RunnableConfig
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langgraph.errors import GraphRecursionError
 from langgraph.prebuilt import ToolRuntime
 
 from backend.agents.emit import _find_project_root
@@ -160,6 +161,114 @@ def _progress_path(session_id: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
+# Structured-findings helpers
+# ---------------------------------------------------------------------------
+
+def _extract_ai_text(msg: AIMessage) -> str:
+    """Extract text content from an AIMessage regardless of content format."""
+    if isinstance(msg.content, str):
+        return msg.content.strip()
+    if isinstance(msg.content, list):
+        parts = [
+            b["text"]
+            for b in msg.content
+            if isinstance(b, dict) and b.get("type") == "text" and b.get("text", "").strip()
+        ]
+        return "\n".join(parts)
+    return ""
+
+
+def _strip_marker_blocks(text: str) -> str:
+    """Remove all ===*_START=== ... ===*_END=== blocks, leaving only prose."""
+    import re
+    for start, end in [
+        ("===COLUMN_FINDING_START===", "===COLUMN_FINDING_END==="),
+        ("===CROSS_COLUMN_FINDING_START===", "===CROSS_COLUMN_FINDING_END==="),
+        ("===EXPLORATION_SUMMARY_START===", "===EXPLORATION_SUMMARY_END==="),
+    ]:
+        text = re.sub(
+            re.escape(start) + r"[\s\S]*?" + re.escape(end),
+            "",
+            text,
+            flags=re.DOTALL,
+        )
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def _parse_structured_findings(text: str) -> dict:
+    """Parse ===COLUMN_FINDING_START=== / ===CROSS_COLUMN_FINDING_START=== / ===EXPLORATION_SUMMARY_START=== blocks.
+
+    Returns an ExplorationFindings-shaped dict. Returns a minimal valid structure on any failure.
+    """
+    import re
+
+    def _extract_blocks(start_marker: str, end_marker: str) -> list:
+        pattern = re.compile(
+            re.escape(start_marker) + r"\s*([\s\S]*?)\s*" + re.escape(end_marker)
+        )
+        blocks = []
+        for m in pattern.finditer(text):
+            raw = m.group(1).strip()
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    blocks.append(parsed)
+            except json.JSONDecodeError:
+                logger.warning(
+                    "_parse_structured_findings: skipping unparseable block (first 120 chars): %s",
+                    raw[:120],
+                )
+        return blocks
+
+    column_findings = _extract_blocks("===COLUMN_FINDING_START===", "===COLUMN_FINDING_END===")
+    cross_findings = _extract_blocks(
+        "===CROSS_COLUMN_FINDING_START===", "===CROSS_COLUMN_FINDING_END==="
+    )
+    summary_blocks = _extract_blocks(
+        "===EXPLORATION_SUMMARY_START===", "===EXPLORATION_SUMMARY_END==="
+    )
+    summary = summary_blocks[0] if summary_blocks else {}
+
+    return {
+        "column_findings": column_findings,
+        "cross_column_findings": cross_findings,
+        "open_questions": summary.get("open_questions", []),
+        "readiness_assessment": summary.get("readiness_assessment", "unknown"),
+        "key_risks": summary.get("key_risks", []),
+    }
+
+
+def _merge_findings(prior: dict, new: dict) -> dict:
+    """Merge new column/cross findings into prior structured findings.
+
+    New column_findings override prior ones by column name.
+    Cross-column and summary fields come from new if new has any column_findings, else prior.
+    """
+    prior_cols: dict = {cf["column"]: cf for cf in prior.get("column_findings", [])}
+    for cf in new.get("column_findings", []):
+        prior_cols[cf["column"]] = cf
+
+    has_new_data = bool(new.get("column_findings"))
+    return {
+        "column_findings": list(prior_cols.values()),
+        "cross_column_findings": (
+            new.get("cross_column_findings") or prior.get("cross_column_findings", [])
+        ),
+        "open_questions": (
+            new.get("open_questions") if has_new_data else prior.get("open_questions", [])
+        ),
+        "readiness_assessment": (
+            new.get("readiness_assessment", "unknown")
+            if has_new_data
+            else prior.get("readiness_assessment", "unknown")
+        ),
+        "key_risks": (
+            new.get("key_risks") if has_new_data else prior.get("key_risks", [])
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Agent factory
 # ---------------------------------------------------------------------------
 
@@ -278,7 +387,7 @@ using any more tools. Your findings feed directly into the data passport."""
         )
 
     config: RunnableConfig = {
-        "recursion_limit": 120,  # ~60 tool-call rounds (agent + tools = 2 hops each)
+        "recursion_limit": 300,  # deep agent has planner + tool nodes; allow ~100 tool-call rounds
     }
 
     # Stream with stream_mode="values" — each chunk is the full state.
@@ -286,54 +395,65 @@ using any more tools. Your findings feed directly into the data passport."""
     seen = 0
     final_state = None
 
-    for chunk in agent.stream(
-        {"messages": [initial_message]},
-        config=config,
-        context=context,
-        stream_mode="values",
-    ):
-        messages = chunk.get("messages", [])
-        for msg in messages[seen:]:
-            if isinstance(msg, AIMessage):
-                # Emit text reasoning
-                if isinstance(msg.content, str) and msg.content.strip():
-                    _emit(session_id, "thinking", text=msg.content.strip()[:300])
-                elif isinstance(msg.content, list):
-                    for block in msg.content:
-                        if (
-                            isinstance(block, dict)
-                            and block.get("type") == "text"
-                            and block.get("text", "").strip()
-                        ):
-                            _emit(session_id, "thinking", text=block["text"].strip()[:300])
-                # Emit outbound tool calls
-                for tc in getattr(msg, "tool_calls", []):
-                    _emit(session_id, "tool_call", tool=tc["name"], input=tc.get("args", {}))
-            elif isinstance(msg, ToolMessage):
-                _emit(
-                    session_id,
-                    "tool_result",
-                    tool=getattr(msg, "name", "unknown"),
-                    preview=str(msg.content)[:80],
-                )
-        seen = len(messages)
-        final_state = chunk
+    try:
+        for chunk in agent.stream(
+            {"messages": [initial_message]},
+            config=config,
+            context=context,
+            stream_mode="values",
+        ):
+            messages = chunk.get("messages", [])
+            for msg in messages[seen:]:
+                if isinstance(msg, AIMessage):
+                    # Emit text reasoning
+                    if isinstance(msg.content, str) and msg.content.strip():
+                        _emit(session_id, "thinking", text=msg.content.strip()[:300])
+                    elif isinstance(msg.content, list):
+                        for block in msg.content:
+                            if (
+                                isinstance(block, dict)
+                                and block.get("type") == "text"
+                                and block.get("text", "").strip()
+                            ):
+                                _emit(session_id, "thinking", text=block["text"].strip()[:300])
+                    # Emit outbound tool calls
+                    for tc in getattr(msg, "tool_calls", []):
+                        _emit(session_id, "tool_call", tool=tc["name"], input=tc.get("args", {}))
+                elif isinstance(msg, ToolMessage):
+                    _emit(
+                        session_id,
+                        "tool_result",
+                        tool=getattr(msg, "name", "unknown"),
+                        preview=str(msg.content)[:80],
+                    )
+            seen = len(messages)
+            final_state = chunk
+    except GraphRecursionError:
+        logger.warning(
+            "[deep_investigate:%s] Recursion limit reached — using findings accumulated so far (%d messages)",
+            session_id[:8],
+            seen,
+        )
 
     _emit(session_id, "done", total_messages=seen)
 
     findings = ""
     if final_state:
-        last = final_state["messages"][-1]
-        if isinstance(last.content, str):
-            findings = last.content
-        elif isinstance(last.content, list):
-            text_parts = [
-                b["text"]
-                for b in last.content
-                if isinstance(b, dict) and b.get("type") == "text"
-            ]
-            findings = "\n".join(text_parts)
-        else:
-            findings = str(last.content)
+        # Walk messages in reverse to find the last substantive AI text
+        for msg in reversed(final_state.get("messages", [])):
+            if not isinstance(msg, AIMessage):
+                continue
+            if isinstance(msg.content, str) and msg.content.strip():
+                findings = msg.content
+                break
+            if isinstance(msg.content, list):
+                text_parts = [
+                    b["text"]
+                    for b in msg.content
+                    if isinstance(b, dict) and b.get("type") == "text" and b.get("text", "").strip()
+                ]
+                if text_parts:
+                    findings = "\n".join(text_parts)
+                    break
 
     return {**state, "investigation_findings": findings}

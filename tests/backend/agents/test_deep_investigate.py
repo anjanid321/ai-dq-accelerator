@@ -378,3 +378,211 @@ def test_deep_investigate_node_passes_session_context_to_stream(mock_build, mock
     assert isinstance(context, InvestigationContext)
     assert context.session_id == "my-session-id"
     assert context.session_id == "my-session-id"
+
+
+# ---------------------------------------------------------------------------
+# _extract_ai_text
+# ---------------------------------------------------------------------------
+
+def test_extract_ai_text_string_content():
+    from backend.agents.graphs.deep_investigate import _extract_ai_text
+    msg = MagicMock(spec=AIMessage)
+    msg.content = "hello world"
+    assert _extract_ai_text(msg) == "hello world"
+
+
+def test_extract_ai_text_list_content():
+    from backend.agents.graphs.deep_investigate import _extract_ai_text
+    msg = MagicMock(spec=AIMessage)
+    msg.content = [{"type": "text", "text": "part one"}, {"type": "text", "text": "part two"}]
+    result = _extract_ai_text(msg)
+    assert "part one" in result
+    assert "part two" in result
+
+
+def test_extract_ai_text_empty_list():
+    from backend.agents.graphs.deep_investigate import _extract_ai_text
+    msg = MagicMock(spec=AIMessage)
+    msg.content = []
+    assert _extract_ai_text(msg) == ""
+
+
+# ---------------------------------------------------------------------------
+# _strip_marker_blocks
+# ---------------------------------------------------------------------------
+
+def test_strip_marker_blocks_removes_column_finding():
+    from backend.agents.graphs.deep_investigate import _strip_marker_blocks
+    text = 'Before.\n===COLUMN_FINDING_START===\n{"col": "x"}\n===COLUMN_FINDING_END===\nAfter.'
+    result = _strip_marker_blocks(text)
+    assert "COLUMN_FINDING" not in result
+    assert "Before." in result
+    assert "After." in result
+
+
+def test_strip_marker_blocks_removes_all_marker_types():
+    from backend.agents.graphs.deep_investigate import _strip_marker_blocks
+    text = (
+        "A\n===COLUMN_FINDING_START===\n{}\n===COLUMN_FINDING_END===\n"
+        "B\n===CROSS_COLUMN_FINDING_START===\n{}\n===CROSS_COLUMN_FINDING_END===\n"
+        "C\n===EXPLORATION_SUMMARY_START===\n{}\n===EXPLORATION_SUMMARY_END===\nD"
+    )
+    result = _strip_marker_blocks(text)
+    assert "FINDING" not in result
+    assert "SUMMARY" not in result
+    assert "A" in result
+    assert "D" in result
+
+
+# ---------------------------------------------------------------------------
+# _parse_structured_findings
+# ---------------------------------------------------------------------------
+
+def _col_block(column: str, viz_code: str = "") -> str:
+    import json as _json
+    obj = {
+        "column": column,
+        "semantic_meaning": f"Meaning of {column}",
+        "data_type_actual": "text",
+        "stats": {"null_count": 0, "null_pct": 0.0, "distinct_count": 10, "total_rows": 100},
+        "full_analysis": f"{column} analysis",
+        "issues": [],
+        "assumptions": [],
+        "rule_implications": [],
+        "visualization_code": viz_code,
+    }
+    return f"===COLUMN_FINDING_START===\n{_json.dumps(obj)}\n===COLUMN_FINDING_END==="
+
+
+def _summary_block(readiness: str = "good") -> str:
+    import json as _json
+    obj = {"open_questions": [], "readiness_assessment": readiness, "key_risks": []}
+    return f"===EXPLORATION_SUMMARY_START===\n{_json.dumps(obj)}\n===EXPLORATION_SUMMARY_END==="
+
+
+def test_parse_structured_findings_extracts_column_block():
+    from backend.agents.graphs.deep_investigate import _parse_structured_findings
+    result = _parse_structured_findings(_col_block("email", "plt.show()"))
+    assert len(result["column_findings"]) == 1
+    assert result["column_findings"][0]["column"] == "email"
+    assert result["column_findings"][0]["visualization_code"] == "plt.show()"
+
+
+def test_parse_structured_findings_returns_empty_on_no_markers():
+    from backend.agents.graphs.deep_investigate import _parse_structured_findings
+    result = _parse_structured_findings("No markers here, just prose.")
+    assert result["column_findings"] == []
+    assert result["cross_column_findings"] == []
+    assert result["readiness_assessment"] == "unknown"
+
+
+def test_parse_structured_findings_extracts_multiple_columns():
+    from backend.agents.graphs.deep_investigate import _parse_structured_findings
+    text = _col_block("email") + "\n\n" + _col_block("salary")
+    result = _parse_structured_findings(text)
+    assert len(result["column_findings"]) == 2
+    columns = {cf["column"] for cf in result["column_findings"]}
+    assert columns == {"email", "salary"}
+
+
+def test_parse_structured_findings_extracts_summary():
+    from backend.agents.graphs.deep_investigate import _parse_structured_findings
+    text = _col_block("age") + "\n" + _summary_block("poor")
+    result = _parse_structured_findings(text)
+    assert result["readiness_assessment"] == "poor"
+
+
+def test_parse_structured_findings_handles_invalid_json_gracefully():
+    from backend.agents.graphs.deep_investigate import _parse_structured_findings
+    text = "===COLUMN_FINDING_START===\nNOT VALID JSON {{{\n===COLUMN_FINDING_END==="
+    result = _parse_structured_findings(text)
+    assert result["column_findings"] == []  # invalid block skipped, no crash
+
+
+def test_parse_structured_findings_extracts_cross_column_finding():
+    from backend.agents.graphs.deep_investigate import _parse_structured_findings
+    import json as _json
+    obj = {
+        "columns": ["A", "B"],
+        "full_analysis": "A and B are related",
+        "pattern": "A increases with B",
+        "severity": "warning",
+        "investigation_sql": "SELECT A, B FROM working_data LIMIT 10",
+        "rule_implications": [],
+        "visualization_code": "plt.scatter(df['A'], df['B'])\nplt.show()",
+    }
+    text = f"===CROSS_COLUMN_FINDING_START===\n{_json.dumps(obj)}\n===CROSS_COLUMN_FINDING_END==="
+    result = _parse_structured_findings(text)
+    assert len(result["cross_column_findings"]) == 1
+    assert result["cross_column_findings"][0]["columns"] == ["A", "B"]
+
+
+# ---------------------------------------------------------------------------
+# _merge_findings
+# ---------------------------------------------------------------------------
+
+def test_merge_findings_new_overrides_prior_by_column():
+    from backend.agents.graphs.deep_investigate import _merge_findings
+    prior = {
+        "column_findings": [{"column": "email", "visualization_code": "old_code"}],
+        "cross_column_findings": [],
+        "open_questions": [],
+        "readiness_assessment": "unknown",
+        "key_risks": [],
+    }
+    new = {
+        "column_findings": [{"column": "email", "visualization_code": "new_code"}],
+        "cross_column_findings": [],
+        "open_questions": [],
+        "readiness_assessment": "good",
+        "key_risks": [],
+    }
+    result = _merge_findings(prior, new)
+    assert len(result["column_findings"]) == 1
+    assert result["column_findings"][0]["visualization_code"] == "new_code"
+
+
+def test_merge_findings_keeps_prior_columns_not_in_new():
+    from backend.agents.graphs.deep_investigate import _merge_findings
+    prior = {
+        "column_findings": [
+            {"column": "email", "visualization_code": "e_code"},
+            {"column": "salary", "visualization_code": "s_code"},
+        ],
+        "cross_column_findings": [],
+        "open_questions": [],
+        "readiness_assessment": "moderate",
+        "key_risks": [],
+    }
+    new = {
+        "column_findings": [{"column": "salary", "visualization_code": "s_new"}],
+        "cross_column_findings": [],
+        "open_questions": ["new question"],
+        "readiness_assessment": "good",
+        "key_risks": [],
+    }
+    result = _merge_findings(prior, new)
+    assert len(result["column_findings"]) == 2
+    col_map = {cf["column"]: cf for cf in result["column_findings"]}
+    assert col_map["email"]["visualization_code"] == "e_code"
+    assert col_map["salary"]["visualization_code"] == "s_new"
+
+
+def test_merge_findings_new_cross_overrides_prior():
+    from backend.agents.graphs.deep_investigate import _merge_findings
+    prior = {
+        "column_findings": [],
+        "cross_column_findings": [{"columns": ["A", "B"], "pattern": "old"}],
+        "open_questions": [],
+        "readiness_assessment": "unknown",
+        "key_risks": [],
+    }
+    new = {
+        "column_findings": [{"column": "X", "visualization_code": ""}],
+        "cross_column_findings": [{"columns": ["C", "D"], "pattern": "new"}],
+        "open_questions": [],
+        "readiness_assessment": "poor",
+        "key_risks": [],
+    }
+    result = _merge_findings(prior, new)
+    assert result["cross_column_findings"][0]["columns"] == ["C", "D"]
