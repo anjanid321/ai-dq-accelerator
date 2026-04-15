@@ -54,6 +54,7 @@ def _profile_and_investigate_sync(params: dict) -> dict:
         "ai_summary": "",
         "suggested_rules": [],
         "top_issues": [],
+        "rule_revision_log": [],
     }
 
     state = read_overview_node(state)
@@ -114,6 +115,7 @@ def _synthesize_and_propose_sync(params: dict) -> dict:
         "ai_summary": "",
         "suggested_rules": [],
         "top_issues": [],
+        "rule_revision_log": [],
     }
 
     # Prepend constraint warning to guide synthesis if investigation was not approved
@@ -188,6 +190,7 @@ def _reinvestigate_sync(params: dict) -> dict:
         "ai_summary": "",
         "suggested_rules": [],
         "top_issues": [],
+        "rule_revision_log": [],
     }
 
     state = deep_investigate_node(state)
