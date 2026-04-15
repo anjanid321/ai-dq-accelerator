@@ -1,7 +1,22 @@
 # tests/backend/agents/test_deep_plan.py
 """Tests for deep_plan — parser and node wiring."""
 import json
-import pytest
+
+
+def _make_state(**overrides):
+    base = {
+        "session_id": "test-abc",
+        "fixable_rules": [],
+        "validation_results": {"baseline_quality_score": 0.7},
+        "profile": {"columns": {}},
+        "use_case": "test",
+        "transformation_log": [],
+        "plan_steps": [],
+        "plan_summary": "",
+        "plan_projected_final_score": 0.0,
+        "result": None,
+    }
+    return {**base, **overrides}
 
 
 def test_parse_empty_text():
@@ -139,20 +154,7 @@ def test_deep_plan_node_applies_step_defaults(monkeypatch):
     monkeypatch.setattr(deep_plan, "_build_deep_plan_agent", lambda: _FakeAgent())
     monkeypatch.setattr(deep_plan, "_emit", lambda *a, **kw: None)
 
-    state = {
-        "session_id": "test-abc",
-        "fixable_rules": [],
-        "validation_results": {"baseline_quality_score": 0.7},
-        "profile": {"columns": {}},
-        "use_case": "test",
-        "transformation_log": [],
-        "plan_steps": [],
-        "plan_summary": "",
-        "plan_projected_final_score": 0.0,
-        "result": None,
-    }
-
-    result = deep_plan.deep_plan_node(state)
+    result = deep_plan.deep_plan_node(_make_state())
 
     assert len(result["plan_steps"]) == 1
     step = result["plan_steps"][0]
@@ -176,18 +178,9 @@ def test_deep_plan_node_falls_back_to_baseline_score_when_no_summary(monkeypatch
     monkeypatch.setattr(deep_plan, "_build_deep_plan_agent", lambda: _FakeAgent())
     monkeypatch.setattr(deep_plan, "_emit", lambda *a, **kw: None)
 
-    state = {
-        "session_id": "test-abc",
-        "fixable_rules": [],
-        "validation_results": {"baseline_quality_score": 0.65},
-        "profile": {"columns": {}},
-        "use_case": "test",
-        "transformation_log": [],
-        "plan_steps": [],
-        "plan_summary": "",
-        "plan_projected_final_score": 0.0,
-        "result": None,
-    }
-    result = deep_plan.deep_plan_node(state)
+    result = deep_plan.deep_plan_node(
+        _make_state(validation_results={"baseline_quality_score": 0.65})
+    )
     assert result["plan_steps"] == []
+    assert result["plan_summary"] == ""
     assert result["plan_projected_final_score"] == 0.65
