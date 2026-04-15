@@ -334,12 +334,22 @@ Your findings feed directly into the data passport and rule proposals.""",
 
 # Phase 2b Structure findings
 def structure_findings_node(state: ProfileAnalyzerState) -> ProfileAnalyzerState:
-    """Extract ExplorationFindings JSON from raw investigation_findings text.
+    """Extract ExplorationFindings from raw text — fallback only.
 
-    Single non-tool Claude call. Instructs verbatim preservation of all counts,
-    sample values, and reasoning. Falls back to a prose entry on JSON parse failure
-    so the notebook degrades gracefully rather than crashing.
+    If deep_investigate_node already populated exploration_findings via the
+    ===COLUMN_FINDING_START=== marker protocol, this function is a no-op.
+    Only runs the LLM extraction call when exploration_findings is empty or
+    contains only the __raw__ fallback entry.
     """
+    ef = state.get("exploration_findings", {})
+    col_findings = ef.get("column_findings", [])
+    if col_findings and col_findings[0].get("column") != "__raw__":
+        logger.info(
+            "[structure_findings:%s] Inline extraction already populated — skipping LLM call",
+            state["session_id"][:8],
+        )
+        return state
+
     import anthropic
 
     client = anthropic.Anthropic()

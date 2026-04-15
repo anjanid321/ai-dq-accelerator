@@ -21,6 +21,7 @@ def _make_state(**overrides) -> ProfileAnalyzerState:
         "ai_summary": "",
         "suggested_rules": [],
         "top_issues": [],
+        "rule_revision_log": [],
     }
     base.update(overrides)
     return base
@@ -102,6 +103,40 @@ def test_structure_findings_node_fallback_on_invalid_json():
     assert isinstance(result["exploration_findings"], dict)
     assert "column_findings" in result["exploration_findings"]
     assert result["exploration_findings"]["column_findings"][0]["column"] == "__raw__"
+
+
+def test_structure_findings_node_skips_when_exploration_findings_populated():
+    from backend.agents.graphs.profile_analyzer import structure_findings_node
+
+    state = _make_state(
+        rule_revision_log=[],
+        exploration_findings={
+            "column_findings": [
+                {
+                    "column": "email",
+                    "semantic_meaning": "contact email",
+                    "data_type_actual": "text",
+                    "stats": {},
+                    "full_analysis": "Email analysis",
+                    "issues": [],
+                    "assumptions": [],
+                    "rule_implications": [],
+                    "visualization_code": "plt.show()",
+                }
+            ],
+            "cross_column_findings": [],
+            "open_questions": [],
+            "readiness_assessment": "good",
+            "key_risks": [],
+        },
+    )
+
+    with patch("backend.agents.graphs.profile_analyzer.call_claude_with_retry") as mock_call:
+        result = structure_findings_node(state)
+
+    mock_call.assert_not_called()
+    assert result["exploration_findings"]["column_findings"][0]["column"] == "email"
+    assert result["exploration_findings"]["column_findings"][0]["visualization_code"] == "plt.show()"
 
 
 def test_structure_findings_node_preserves_existing_state():
