@@ -289,10 +289,10 @@ def _build_deep_investigate_agent():
             dq_check_regex_pattern,
             dq_get_sample_rows,
             dq_get_column_detail,
-            dq_group_over_time,            # NEW
-            dq_find_correlated_nulls,      # NEW
-            dq_pairwise_profile,           # NEW
-            dq_compute_correlation_matrix, # NEW
+            dq_group_over_time,
+            dq_find_correlated_nulls,
+            dq_pairwise_profile,
+            dq_compute_correlation_matrix,
         ],
         system_prompt=PROFILE_INVESTIGATION_SYSTEM,
         context_schema=InvestigationContext,
@@ -397,7 +397,6 @@ After all columns, emit cross-column blocks, then the ===EXPLORATION_SUMMARY_STA
 
     all_ai_text: list[str] = []
     seen = 0
-    final_state = None
 
     try:
         for chunk in agent.stream(
@@ -427,7 +426,6 @@ After all columns, emit cross-column blocks, then the ===EXPLORATION_SUMMARY_STA
                         preview=str(msg.content)[:80],
                     )
             seen = len(messages)
-            final_state = chunk
     except GraphRecursionError:
         logger.warning(
             "[deep_investigate:%s] Recursion limit reached — using findings accumulated so far (%d messages)",

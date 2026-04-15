@@ -150,7 +150,7 @@ def test_build_agent_passes_context_schema(mock_create, mock_anthropic):
 
 @patch("backend.agents.graphs.deep_investigate.ChatAnthropic")
 @patch("backend.agents.graphs.deep_investigate.create_deep_agent")
-def test_build_agent_passes_all_five_tools(mock_create, mock_anthropic):
+def test_build_agent_passes_all_nine_tools(mock_create, mock_anthropic):
     from backend.agents.graphs.deep_investigate import _build_deep_investigate_agent
     mock_create.return_value = MagicMock()
     _build_deep_investigate_agent()
