@@ -8,9 +8,6 @@ from backend.agents.emit import emit
 from backend.agents.graphs.deep_plan import deep_plan_node
 
 
-MODEL = "claude-sonnet-4-6"
-
-
 class TransformPlannerState(TypedDict):
     session_id: str
     fixable_rules: list
