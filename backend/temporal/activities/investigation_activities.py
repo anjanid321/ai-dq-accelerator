@@ -205,3 +205,46 @@ def _reinvestigate_sync(params: dict) -> dict:
         "notebook_path": notebook_path,
         "html_path": html_path,
     }
+
+
+@activity.defn
+async def review_rules_activity(params: dict) -> dict:
+    """
+    params: {session_id, suggested_rules, exploration_findings, use_case}
+    Returns: {suggested_rules, rule_revision_log}
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, partial(_review_rules_sync, params))
+
+
+def _review_rules_sync(params: dict) -> dict:
+    from backend.agents.graphs.deep_rule_review import deep_rule_review_node
+
+    session_id = params["session_id"]
+
+    state = {
+        "session_id": session_id,
+        "use_case": params.get("use_case", ""),
+        "target_column": None,
+        "description": None,
+        "overview_notes": "",
+        "columns_to_investigate": [],
+        "investigation_findings": "",
+        "cross_column_findings": [],
+        "exploration_findings": params.get("exploration_findings", {}),
+        "exploration_notebook_path": "",
+        "investigation_feedback": None,
+        "investigation_round": 0,
+        "data_passport": "",
+        "ai_summary": "",
+        "suggested_rules": params["suggested_rules"],
+        "top_issues": [],
+        "rule_revision_log": [],
+    }
+
+    state = deep_rule_review_node(state)
+
+    return {
+        "suggested_rules": state["suggested_rules"],
+        "rule_revision_log": state.get("rule_revision_log", []),
+    }
