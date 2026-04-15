@@ -18,9 +18,9 @@ def test_run_transform_planner_returns_empty_plan_when_no_fixable_rules():
 
 
 def test_finalize_assembles_result():
-    from backend.agents.graphs.transform_planner import finalize, TransformPlannerState
+    from backend.agents.graphs.transform_planner import finalize
 
-    state: TransformPlannerState = {
+    state = {
         "session_id": "s1",
         "fixable_rules": [],
         "validation_results": {},
