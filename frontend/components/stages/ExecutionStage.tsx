@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import type { SessionState, TransformPlanStep, ExecutionEscalation } from '@/lib/types'
 import { resolveEscalation } from '@/lib/api'
 import { CodeBlock } from './CodeBlock'
@@ -22,30 +22,94 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'text-text-muted/50',
 }
 
-function SampleTable({ label, rows }: { label: string; rows: Record<string, unknown>[] }) {
-  if (!rows.length) return null
-  const keys = Object.keys(rows[0]).slice(0, 3)
+function BeforeAfterTables({
+  beforeRows,
+  afterRows,
+  targetColumns,
+  affectedRowCount,
+}: {
+  beforeRows: Record<string, unknown>[]
+  afterRows: Record<string, unknown>[]
+  targetColumns: string[]
+  affectedRowCount?: number | null
+}) {
+  if (!beforeRows.length && !afterRows.length) return null
+
+  const allKeys = beforeRows.length ? Object.keys(beforeRows[0]) : Object.keys(afterRows[0])
+
+  // Auto-detect columns that actually changed across all sample rows (covers custom code)
+  const detectedChanged = allKeys.filter(col =>
+    beforeRows.some((row, i) => {
+      const bv = row[col] === null || row[col] === undefined ? null : String(row[col])
+      const av = afterRows[i]?.[col] === null || afterRows[i]?.[col] === undefined ? null : String(afterRows[i]?.[col])
+      return bv !== av
+    })
+  )
+
+  // Merge explicit targets with auto-detected, preserving order
+  const targets = [...new Set([...targetColumns.filter(c => allKeys.includes(c)), ...detectedChanged])]
+  // Context: columns not already in targets, up to fill 3 total shown
+  const context = allKeys.filter(c => !targets.includes(c)).slice(0, Math.max(0, 3 - targets.length))
+  const keys = [...targets, ...context]
+
+  const rowCount = Math.max(beforeRows.length, afterRows.length)
+
+  function cellVal(row: Record<string, unknown> | undefined, col: string) {
+    if (!row) return null
+    const v = row[col]
+    if (v === null || v === undefined) return null
+    return String(v)
+  }
+
+  function isChanged(i: number, col: string) {
+    return cellVal(beforeRows[i], col) !== cellVal(afterRows[i], col)
+  }
+
   return (
     <div>
-      <div className="text-[9px] uppercase tracking-wider text-text-muted/50 mb-0.5">{label}</div>
+      <div className="text-[9px] uppercase tracking-wider text-text-muted/50 mb-0.5">
+        Before / After{affectedRowCount != null ? ` · ${affectedRowCount} rows affected` : ''}
+      </div>
       <div className="overflow-x-auto rounded border border-border/50">
         <table className="w-full text-[10px]">
           <thead>
             <tr className="border-b border-border/30">
-              {keys.map(k => <th key={k} className="px-1.5 py-0.5 text-left text-text-muted/60 font-medium">{k}</th>)}
+              <th className="px-1.5 py-0.5 text-left text-text-muted/40 font-medium w-10"></th>
+              {keys.map(k => (
+                <th key={k} className={`px-1.5 py-0.5 text-left font-medium ${targets.includes(k) ? 'text-indigo-light/80' : 'text-text-muted/60'}`}>
+                  {k}{targets.includes(k) ? ' ✦' : ''}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, 5).map((row, i) => (
-              <tr key={i} className="border-b border-border/20 last:border-0">
-                {keys.map(k => (
-                  <td key={k} className="px-1.5 py-0.5 font-mono text-text-muted truncate max-w-[100px]">
-                    {row[k] === null || row[k] === undefined
-                      ? <span className="italic text-text-muted/40">null</span>
-                      : String(row[k])}
-                  </td>
-                ))}
-              </tr>
+            {Array.from({ length: Math.min(rowCount, 5) }).map((_, i) => (
+              <React.Fragment key={i}>
+                <tr className="border-b border-border/10">
+                  <td className="px-1.5 py-0.5 text-text-muted/30 font-mono">←</td>
+                  {keys.map(k => {
+                    const v = cellVal(beforeRows[i], k)
+                    const changed = isChanged(i, k)
+                    return (
+                      <td key={k} className={`px-1.5 py-0.5 font-mono truncate max-w-[120px] ${changed && targets.includes(k) ? 'text-red-400/80 line-through' : 'text-text-muted'}`}>
+                        {v === null ? <span className="italic text-text-muted/30">null</span> : v}
+                      </td>
+                    )
+                  })}
+                </tr>
+                <tr className={`${i < Math.min(rowCount, 5) - 1 ? 'border-b border-border/30' : ''}`}>
+                  <td className="px-1.5 py-0.5 text-text-muted/30 font-mono">→</td>
+                  {keys.map(k => {
+                    const v = cellVal(afterRows[i], k)
+                    const changed = isChanged(i, k)
+                    return (
+                      <td key={k} className={`px-1.5 py-0.5 font-mono truncate max-w-[120px] ${changed && targets.includes(k) ? 'text-success-light font-semibold' : 'text-text-muted'}`}>
+                        {v === null ? <span className="italic text-text-muted/30">null</span> : v}
+                      </td>
+                    )
+                  })}
+                </tr>
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -116,15 +180,17 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
             <div><span className="text-text-muted/60 uppercase tracking-wider text-[10px]">Targets Rules</span><p className="font-mono text-text-muted/80 mt-0.5">{step.targets_rules.join(', ')}</p></div>
           )}
           {step.before_sample && step.before_sample.length > 0 && step.after_sample && step.after_sample.length > 0 && (
-            <div>
-              <span className="text-text-muted/60 uppercase tracking-wider text-[10px]">
-                Before / After{step.affected_row_count != null ? ` · ${step.affected_row_count} rows affected` : ''}
-              </span>
-              <div className="mt-1 grid grid-cols-2 gap-2">
-                <SampleTable label="Before" rows={step.before_sample} />
-                <SampleTable label="After" rows={step.after_sample} />
-              </div>
-            </div>
+            <BeforeAfterTables
+              beforeRows={step.before_sample}
+              afterRows={step.after_sample}
+              targetColumns={[
+                step.column,
+                step.params?.column as string | undefined,
+                ...((step.params?.columns as string[] | undefined) ?? []),
+                ...((step.target_columns as string[] | undefined) ?? []),
+              ].filter((c): c is string => Boolean(c))}
+              affectedRowCount={step.affected_row_count}
+            />
           )}
         </div>
       )}
@@ -224,10 +290,11 @@ function EscalationOverlay({
         )}
 
         {isVerificationFailed && escalation.context.before_sample && escalation.context.after_sample && (
-          <div className="grid grid-cols-2 gap-2">
-            <SampleTable label="Before" rows={escalation.context.before_sample as Record<string, unknown>[]} />
-            <SampleTable label="After" rows={escalation.context.after_sample as Record<string, unknown>[]} />
-          </div>
+          <BeforeAfterTables
+            beforeRows={escalation.context.before_sample as Record<string, unknown>[]}
+            afterRows={escalation.context.after_sample as Record<string, unknown>[]}
+            targetColumns={step ? [step.column, step.params?.column as string | undefined].filter((c): c is string => Boolean(c)) : []}
+          />
         )}
         {isPreApplied && (
           <p className="text-xs text-text-muted/70 italic">This step has already been applied. You can continue or abort the plan.</p>

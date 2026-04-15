@@ -5,6 +5,7 @@ import { getPipelineDownloadUrl } from '@/lib/api'
 const STAGE_LABELS: Record<string, string> = {
   LOADING: 'Loading',
   PROFILING: 'Profiling',
+  RULE_REVIEW: 'Reviewing Rules',
   AWAITING_RULE_APPROVAL: 'Awaiting Rules',
   VALIDATING: 'Validating',
   TRANSFORMATION_LOOP: 'Transforming',
@@ -16,6 +17,7 @@ const STAGE_LABELS: Record<string, string> = {
 const STAGE_COLORS: Record<string, string> = {
   LOADING: 'text-cyan-400 bg-cyan-400/10',
   PROFILING: 'text-cyan-400 bg-cyan-400/10',
+  RULE_REVIEW: 'text-indigo-light bg-indigo/10',
   AWAITING_RULE_APPROVAL: 'text-warning bg-warning/10',
   VALIDATING: 'text-indigo-light bg-indigo/10',
   TRANSFORMATION_LOOP: 'text-indigo-light bg-indigo/10',

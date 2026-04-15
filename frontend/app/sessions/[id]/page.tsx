@@ -17,12 +17,14 @@ import { ExecutionStage } from '@/components/stages/ExecutionStage'
 import { ScorecardStage } from '@/components/stages/ScorecardStage'
 import { PipelineStage } from '@/components/stages/PipelineStage'
 import { TriageStage } from '@/components/stages/TriageStage'
+import { ExplorationStage } from '@/components/stages/ExplorationStage'
 
 function workflowToStepper(stage: string): { active: StageId; completed: StageId[] } {
-  const ORDER: StageId[] = ['load', 'profile', 'rules', 'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline']
+  const ORDER: StageId[] = ['load', 'profile', 'explore', 'rules', 'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline']
   const STAGE_MAP: Record<string, StageId> = {
     LOADING: 'load', PROFILING: 'profile',
-    AWAITING_RULE_APPROVAL: 'rules', VALIDATING: 'validate',
+    AWAITING_INVESTIGATION_REVIEW: 'explore', REINVESTIGATING: 'explore', PROFILING_SYNTHESIS: 'explore',
+    RULE_REVIEW: 'rules', AWAITING_RULE_APPROVAL: 'rules', VALIDATING: 'validate',
     TRIAGING: 'triage', AWAITING_TRIAGE_APPROVAL: 'triage',
     PLANNING: 'plan', AWAITING_PLAN_APPROVAL: 'plan',
     TRANSFORMATION_LOOP: 'transform', AWAITING_HUMAN_INPUT: 'transform',
@@ -35,6 +37,10 @@ function workflowToStepper(stage: string): { active: StageId; completed: StageId
 }
 
 const WAITING_MESSAGES: Record<string, string> = {
+  AWAITING_INVESTIGATION_REVIEW: 'Awaiting exploration review',
+  REINVESTIGATING: 'Re-investigating…',
+  PROFILING_SYNTHESIS: 'Synthesizing findings…',
+  RULE_REVIEW: 'Reviewing rules for contradictions…',
   AWAITING_RULE_APPROVAL: 'Awaiting rule decisions',
   AWAITING_TRIAGE_APPROVAL: 'Awaiting triage decisions',
   AWAITING_PLAN_APPROVAL: 'Awaiting plan approval',
@@ -65,7 +71,8 @@ export default function WorkspacePage() {
     if (!session && isLoading) return <LoadingStage />
     switch (displayStage) {
       case 'load': return <LoadingStage />
-      case 'profile': return <ProfileStage session={session!} onContinue={() => setViewingStage('rules')} />
+      case 'profile': return <ProfileStage session={session!} onContinue={() => setViewingStage('explore')} />
+      case 'explore': return <ExplorationStage sessionId={id} stage={stage} />
       case 'rules': return <RulesStage session={session!} />
       case 'validate': return <ValidateStage session={session ?? null} />
       case 'triage': return <TriageStage session={session!} />

@@ -97,6 +97,37 @@ export async function approvePlan(
   })
 }
 
+export async function getExplorationState(sessionId: string): Promise<{
+  exploration_findings: Record<string, unknown>
+  open_questions: string[]
+  investigation_round: number
+  notebook_ready: boolean
+  synthesis_constrained: boolean
+  synthesis_constraint_reasons: string[]
+}> {
+  return request(`/api/v1/sessions/${sessionId}/exploration`)
+}
+
+export function getNotebookHtmlUrl(sessionId: string): string {
+  return `/api/v1/sessions/${sessionId}/exploration/notebook`
+}
+
+export function getNotebookDownloadUrl(sessionId: string): string {
+  return `/api/v1/sessions/${sessionId}/exploration/notebook/download`
+}
+
+export async function submitExplorationFeedback(
+  sessionId: string,
+  approve: boolean,
+  message?: string,
+): Promise<{ accepted: boolean; message: string; investigation_round: number }> {
+  return request(`/api/v1/sessions/${sessionId}/exploration/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ approve, message: message ?? '' }),
+  })
+}
+
 export async function resolveEscalation(
   sessionId: string,
   action: string,

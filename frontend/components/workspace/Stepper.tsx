@@ -1,10 +1,11 @@
 'use client'
 
-export type StageId = 'load' | 'profile' | 'rules' | 'validate' | 'triage' | 'plan' | 'transform' | 'scorecard' | 'pipeline'
+export type StageId = 'load' | 'profile' | 'explore' | 'rules' | 'validate' | 'triage' | 'plan' | 'transform' | 'scorecard' | 'pipeline'
 
 const STAGES: { id: StageId; label: string }[] = [
   { id: 'load', label: 'Load' },
   { id: 'profile', label: 'Profile' },
+  { id: 'explore', label: 'Explore' },
   { id: 'rules', label: 'Rules' },
   { id: 'validate', label: 'Validate' },
   { id: 'triage', label: 'Triage' },
