@@ -23,7 +23,7 @@ from backend.api.schemas import (
     TransformationLogEntry,
 )
 from backend.db.engine import get_sessionmaker
-from backend.db.repository import insert_session, list_active_sessions, delete_session as db_delete_session, get_snapshot
+from backend.db.repository import insert_session, list_active_sessions, delete_session as db_delete_session, get_snapshot, get_session_row
 from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow
 
 router = APIRouter()
@@ -181,20 +181,66 @@ async def delete_session(session_id: str, request: Request):
 
 @router.get("/sessions/{session_id}", response_model=SessionStateResponse)
 async def get_session(session_id: str, request: Request):
-    """Get current state of a DQ session by querying the Temporal workflow."""
-    client = request.app.state.temporal_client
+    """Get current state of a DQ session.
 
+    Reads live from the Temporal workflow when available. If Temporal returns
+    NOT_FOUND (workflow retention expired), hydrates from the DB row + the
+    most-advanced snapshot."""
+    client = request.app.state.temporal_client
+    state: dict | None = None
     try:
         handle = client.get_workflow_handle(session_id)
         state = await handle.query(DQAcceleratorWorkflow.get_full_state)
     except RPCError as e:
-        if e.status == RPCStatusCode.NOT_FOUND:
-            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
-        raise HTTPException(status_code=500, detail=str(e))
+        if e.status != RPCStatusCode.NOT_FOUND:
+            raise HTTPException(status_code=500, detail=str(e))
+        # fall through to DB hydration
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Build current_suggestion from state
+    if state is None:
+        # Hydrate from DB
+        try:
+            sid_uuid = _uuid.UUID(session_id)
+        except ValueError:
+            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+        sm = get_sessionmaker()
+        async with sm() as db:
+            row = await get_session_row(db, sid_uuid)
+            if row is None:
+                raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+            # Pick the most-advanced snapshot to hydrate fields. Order matches the workflow.
+            STAGE_ORDER = ["pipeline", "scorecard", "transform", "plan", "triage",
+                           "validate", "rules", "explore", "profile"]
+            payload: dict = {}
+            for stage_name in STAGE_ORDER:
+                snap = await get_snapshot(db, sid_uuid, stage_name)
+                if snap is not None:
+                    payload = {**snap.payload, **payload}  # earlier stage values fill gaps
+        state = {
+            "stage": row.stage,
+            "session_id": session_id,
+            "profile": payload.get("profile", {}),
+            "ai_summary": payload.get("ai_summary", ""),
+            "suggested_rules": payload.get("suggested_rules", []),
+            "baseline_quality_score": row.baseline_score or 0.0,
+            "current_score": row.current_score or 0.0,
+            "validation_summary": payload.get("validation_summary", ""),
+            "anomaly_summary": payload.get("anomaly_summary", ""),
+            "current_suggestion": None,
+            "current_preview": None,
+            "transformation_log": payload.get("transformation_log", []),
+            "scorecard": payload.get("scorecard", {}),
+            "narrative": payload.get("narrative", ""),
+            "output_dir": row.output_dir or "",
+            "zip_path": row.zip_path or "",
+            "validation_results": payload.get("validation_results", {}),
+            "triage_result": payload.get("triage_result", {}),
+            "transform_plan": payload.get("transform_plan"),
+            "execution_escalation": payload.get("execution_escalation"),
+        }
+
+    # Existing response building (unchanged):
     current_suggestion = None
     raw_suggestion = state.get("current_suggestion")
     raw_preview = state.get("current_preview")
