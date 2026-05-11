@@ -14,13 +14,15 @@ from temporalio.service import RPCError, RPCStatusCode
 from backend.api.schemas import (
     CreateSessionResponse,
     SessionStateResponse,
+    SessionListItem,
+    StageSnapshotResponse,
     WorkflowStage,
     CurrentSuggestion,
     TransformationPreview,
     TransformationLogEntry,
 )
 from backend.db.engine import get_sessionmaker
-from backend.db.repository import insert_session
+from backend.db.repository import insert_session, list_active_sessions
 from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow
 
 router = APIRouter()
@@ -36,6 +38,25 @@ def _project_root() -> Path:
             return p
         p = p.parent
     return Path(".")
+
+
+@router.get("/sessions", response_model=list[SessionListItem])
+async def list_sessions(request: Request):
+    sm = get_sessionmaker()
+    async with sm() as db:
+        rows = await list_active_sessions(db)
+    return [
+        SessionListItem(
+            id=str(r.id),
+            filename=r.filename,
+            stage=WorkflowStage(r.stage) if r.stage in WorkflowStage._value2member_map_ else WorkflowStage.LOADING,
+            current_score=r.current_score or 0.0,
+            baseline_score=r.baseline_score or 0.0,
+            created_at=r.created_at.isoformat(),
+            updated_at=r.updated_at.isoformat(),
+        )
+        for r in rows
+    ]
 
 
 @router.post("/sessions", response_model=CreateSessionResponse)
