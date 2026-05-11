@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import uuid as _uuid
 from pathlib import Path
 
 import aiofiles
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from temporalio.service import RPCError, RPCStatusCode
 
@@ -22,7 +23,7 @@ from backend.api.schemas import (
     TransformationLogEntry,
 )
 from backend.db.engine import get_sessionmaker
-from backend.db.repository import insert_session, list_active_sessions
+from backend.db.repository import insert_session, list_active_sessions, delete_session as db_delete_session
 from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow
 
 router = APIRouter()
@@ -125,6 +126,39 @@ async def create_session(
         stage=WorkflowStage.LOADING,
         message="Session created. Profiling in progress — poll GET /sessions/{id} for updates.",
     )
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session(session_id: str, request: Request):
+    # 1. Terminate the workflow if it exists
+    client = request.app.state.temporal_client
+    try:
+        handle = client.get_workflow_handle(session_id)
+        await handle.terminate(reason="user-deleted")
+    except RPCError as e:
+        if e.status != RPCStatusCode.NOT_FOUND:
+            raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        # Best-effort: a handle terminate may also raise if the workflow
+        # is already completed; that's fine.
+        pass
+
+    # 2. Delete the DB row (cascades stage_snapshots)
+    try:
+        sid_uuid = _uuid.UUID(session_id)
+    except ValueError:
+        return Response(status_code=204)
+    sm = get_sessionmaker()
+    async with sm() as db:
+        await db_delete_session(db, sid_uuid)
+        await db.commit()
+
+    # 3. Remove on-disk artifacts
+    project_root = _project_root()
+    shutil.rmtree(project_root / DATA_DIR / "sessions" / session_id, ignore_errors=True)
+    shutil.rmtree(project_root / "output" / "sessions" / session_id, ignore_errors=True)
+
+    return Response(status_code=204)
 
 
 @router.get("/sessions/{session_id}", response_model=SessionStateResponse)
