@@ -23,7 +23,7 @@ from backend.api.schemas import (
     TransformationLogEntry,
 )
 from backend.db.engine import get_sessionmaker
-from backend.db.repository import insert_session, list_active_sessions, delete_session as db_delete_session
+from backend.db.repository import insert_session, list_active_sessions, delete_session as db_delete_session, get_snapshot
 from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow
 
 router = APIRouter()
@@ -125,6 +125,24 @@ async def create_session(
         workflow_id=session_id,
         stage=WorkflowStage.LOADING,
         message="Session created. Profiling in progress — poll GET /sessions/{id} for updates.",
+    )
+
+
+@router.get("/sessions/{session_id}/stages/{stage}", response_model=StageSnapshotResponse)
+async def get_stage_snapshot(session_id: str, stage: str):
+    try:
+        sid_uuid = _uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    sm = get_sessionmaker()
+    async with sm() as db:
+        snap = await get_snapshot(db, sid_uuid, stage)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    return StageSnapshotResponse(
+        stage=snap.stage,
+        payload=snap.payload,
+        created_at=snap.created_at.isoformat(),
     )
 
 
