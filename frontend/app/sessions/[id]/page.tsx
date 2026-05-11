@@ -51,10 +51,11 @@ const WAITING_MESSAGES: Record<string, string> = {
 
 export default function WorkspacePage() {
   const { id } = useParams<{ id: string }>()
-  const { session, isLoading } = useSession(id)
+  const [viewingStage, setViewingStage] = useState<StageId | null>(null)
+  const isViewingPast = viewingStage !== null
+  const { session, isLoading } = useSession(id, { enabled: !isViewingPast })
   const { events } = useAIStream(id)
   const { sessions } = useSessionsList()
-  const [viewingStage, setViewingStage] = useState<StageId | null>(null)
 
   const filename = sessions.find(s => s.id === id)?.filename ?? id
   const stage = session?.stage ?? 'LOADING'
