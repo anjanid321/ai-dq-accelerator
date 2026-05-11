@@ -33,6 +33,7 @@ with workflow.unsafe.imports_passed_through():
         zip_output_activity,
     )
     from backend.temporal.activities.triage_activities import triage_rules_activity
+    from backend.temporal.activities.snapshot_activities import snapshot_stage
 
 ACTIVITY_RETRY = RetryPolicy(maximum_attempts=3, initial_interval=timedelta(seconds=2))
 ACTIVITY_TIMEOUT = timedelta(minutes=10)
@@ -250,6 +251,30 @@ class DQAcceleratorWorkflow:
         self.execution_escalation = None
         self.stage = "TRANSFORMATION_LOOP"
         return decision
+
+    async def _snapshot(self, ui_stage: str, payload: dict) -> None:
+        """Persist a stage snapshot. Best-effort — failures are logged, not raised."""
+        session_updates = {
+            "stage": self.stage,
+            "current_score": self.current_score,
+            "baseline_score": self.baseline_quality_score,
+            "output_dir": self.output_dir or None,
+            "zip_path": self.zip_path or None,
+        }
+        try:
+            await workflow.execute_activity(
+                snapshot_stage,
+                {
+                    "session_id": self.session_id,
+                    "stage": ui_stage,
+                    "payload": payload,
+                    "session_updates": session_updates,
+                },
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=ACTIVITY_RETRY,
+            )
+        except Exception:
+            workflow.logger.exception("snapshot_stage failed for %s", ui_stage)
 
     # ── Main workflow run ────────────────────────────────────────────────────
 
