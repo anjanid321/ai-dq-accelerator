@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useSession } from '@/hooks/useSession'
 import { useAIStream } from '@/hooks/useAIStream'
-import { useSessionList } from '@/hooks/useSessionList'
+import { useSessionsList } from '@/hooks/useSessionsList'
 import { TopBar } from '@/components/workspace/TopBar'
 import { Stepper, type StageId } from '@/components/workspace/Stepper'
 import { AIPanel } from '@/components/ai-panel/AIPanel'
@@ -53,7 +53,7 @@ export default function WorkspacePage() {
   const { id } = useParams<{ id: string }>()
   const { session, isLoading } = useSession(id)
   const { events } = useAIStream(id)
-  const { sessions } = useSessionList()
+  const { sessions } = useSessionsList()
   const [viewingStage, setViewingStage] = useState<StageId | null>(null)
 
   const filename = sessions.find(s => s.id === id)?.filename ?? id
