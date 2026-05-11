@@ -1,6 +1,7 @@
 """FastAPI application entry point with Temporal client lifecycle."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -37,20 +38,38 @@ def get_temporal_client() -> Client:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global temporal_client
+
+    # Run DB migrations
+    from alembic import command
+    from alembic.config import Config
+    from backend.db.engine import build_engine, dispose_engine, dsn_from_env, set_engine
+
+    alembic_cfg = Config(str(Path(__file__).resolve().parent.parent.parent / "alembic.ini"))
+    alembic_cfg.set_main_option("sqlalchemy.url", dsn_from_env())
+    logger.info("Running alembic upgrade head")
+    await asyncio.get_running_loop().run_in_executor(
+        None, lambda: command.upgrade(alembic_cfg, "head")
+    )
+
+    # Open async engine
+    engine = build_engine()
+    set_engine(engine)
+    app.state.db_engine = engine
+
+    # Connect to Temporal
     temporal_host = os.getenv("TEMPORAL_HOST", "localhost:7233")
     temporal_namespace = os.getenv("TEMPORAL_NAMESPACE", "default")
     logger.info(f"Connecting to Temporal at {temporal_host}")
     temporal_client = await Client.connect(temporal_host, namespace=temporal_namespace)
     logger.info("Temporal client connected")
 
-    # Share client + task queue with routers via app state
     app.state.temporal_client = temporal_client
     app.state.task_queue = TASK_QUEUE
 
     yield
 
-    logger.info("Shutting down Temporal client")
-    # temporalio Client has no explicit close needed
+    logger.info("Shutting down")
+    await dispose_engine()
 
 
 app = FastAPI(
