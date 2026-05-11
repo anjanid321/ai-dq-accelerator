@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import os
-import uuid
+import uuid as _uuid
 from pathlib import Path
 
 import aiofiles
@@ -19,6 +19,8 @@ from backend.api.schemas import (
     TransformationPreview,
     TransformationLogEntry,
 )
+from backend.db.engine import get_sessionmaker
+from backend.db.repository import insert_session
 from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow
 
 router = APIRouter()
@@ -53,7 +55,8 @@ async def create_session(
             detail=f"Unsupported file type '{suffix}'. Allowed: {ALLOWED_EXTENSIONS}",
         )
 
-    session_id = str(uuid.uuid4())
+    session_uuid = _uuid.uuid4()
+    session_id = str(session_uuid)
     project_root = _project_root()
     session_dir = project_root / DATA_DIR / "sessions" / session_id / "raw"
     session_dir.mkdir(parents=True, exist_ok=True)
@@ -67,6 +70,19 @@ async def create_session(
     # Start Temporal workflow
     client = request.app.state.temporal_client
     task_queue = request.app.state.task_queue
+
+    sm = get_sessionmaker()
+    async with sm() as db:
+        await insert_session(
+            db,
+            id=session_uuid,
+            filename=file.filename or f"input{suffix}",
+            file_ext=suffix.lstrip("."),
+            use_case=use_case or None,
+            target_column=target_column,
+            description=description,
+        )
+        await db.commit()
 
     await client.start_workflow(
         DQAcceleratorWorkflow.run,
