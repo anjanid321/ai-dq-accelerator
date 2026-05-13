@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: temporal
       POSTGRES_DB: temporal
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -60,6 +60,8 @@ services:
       dockerfile: Dockerfile
       target: api
     depends_on:
+      postgresql:
+        condition: service_healthy
       temporal:
         condition: service_healthy
     environment:
@@ -68,6 +70,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - DATA_DIR=/app/data
       - OUTPUT_DIR=/app/output
+      - APP_DB_DSN=postgresql+asyncpg://temporal:temporal@postgresql:5432/temporal
     ports:
       - "8000:8000"
     volumes:
@@ -92,6 +95,8 @@ services:
       dockerfile: Dockerfile
       target: worker
     depends_on:
+      postgresql:
+        condition: service_healthy
       temporal:
         condition: service_healthy
     environment:
@@ -100,6 +105,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - DATA_DIR=/app/data
       - OUTPUT_DIR=/app/output
+      - APP_DB_DSN=postgresql+asyncpg://temporal:temporal@postgresql:5432/temporal
     volumes:
       - ./data:/app/data
       - ./output:/app/output

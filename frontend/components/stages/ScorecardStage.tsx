@@ -12,7 +12,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
   return (
     <div className={`border-b border-surface ${!isApplied ? 'opacity-50' : ''}`}>
       <div
-        className={`grid grid-cols-[24px_2fr_1fr_1fr_80px] px-3.5 py-2.5 text-xs gap-2 items-center ${hasDetail ? 'cursor-pointer hover:bg-white/2' : ''}`}
+        className={`grid grid-cols-[24px_2fr_1fr_1fr_80px] px-3.5 py-2.5 text-xs gap-2 items-center ${hasDetail ? 'cursor-pointer hover:bg-black/5' : ''}`}
         onClick={() => hasDetail && setExpanded(v => !v)}
       >
         <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${isApplied ? 'bg-success/20 text-success-light' : 'bg-danger/20 text-danger-light'}`}>{isApplied ? '✓' : '✗'}</div>
@@ -78,7 +78,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
   )
 }
 
-export function ScorecardStage({ sessionId }: { sessionId: string }) {
+export function ScorecardStage({ sessionId }: { sessionId: string; readOnly?: boolean }) {
   const [data, setData] = useState<ScorecardResponse | null>(null)
 
   useEffect(() => {
@@ -111,7 +111,7 @@ export function ScorecardStage({ sessionId }: { sessionId: string }) {
           <div className="text-[10px] uppercase tracking-wider text-text-muted mt-1">Improvement</div>
         </div>
         <div className="flex-1">
-          {[{ label: 'Before', pct: baseline, color: '#374151' }, { label: 'After', pct: final, color: 'linear-gradient(90deg,#6366f1,#22c55e)' }].map(row => (
+          {[{ label: 'Before', pct: baseline, color: '#94a3b8' }, { label: 'After', pct: final, color: 'linear-gradient(90deg,#6366f1,#22c55e)' }].map(row => (
             <div key={row.label} className="flex items-center gap-2 mb-1.5">
               <span className="text-[10px] text-text-muted w-10 text-right">{row.label}</span>
               <div className="flex-1 bg-border rounded-full h-2.5 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${row.pct}%`, background: row.color }} /></div>

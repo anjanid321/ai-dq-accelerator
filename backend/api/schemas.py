@@ -319,3 +319,25 @@ class PipelineGenerateResponse(BaseModel):
     accepted: bool
     message: str = "Pipeline generation started."
     session_id: str
+
+
+# ── GET /sessions ─────────────────────────────────────────────────────────────
+
+
+class SessionListItem(BaseModel):
+    id: str
+    filename: str
+    stage: WorkflowStage
+    current_score: float = 0.0
+    baseline_score: float = 0.0
+    created_at: str
+    updated_at: str
+
+
+# ── GET /sessions/{id}/stages/{stage} ─────────────────────────────────────────
+
+
+class StageSnapshotResponse(BaseModel):
+    stage: str
+    payload: dict
+    created_at: str

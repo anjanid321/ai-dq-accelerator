@@ -6,6 +6,7 @@ import { PlanningStage } from './PlanningStage'
 
 interface Props {
   session: SessionState
+  readOnly?: boolean
 }
 
 function ParamEditor({
@@ -58,6 +59,7 @@ function StepCard({
   onRemove,
   onMoveUp,
   onMoveDown,
+  readOnly,
 }: {
   step: TransformPlanStep
   index: number
@@ -67,6 +69,7 @@ function StepCard({
   onRemove: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  readOnly?: boolean
 }) {
   const isCustom = step.type === 'custom'
   const missingDeps = step.depends_on.filter(d => removedIds.has(d))
@@ -86,22 +89,24 @@ function StepCard({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={onMoveUp}
-            disabled={index === 0}
-            className="px-1.5 py-0.5 text-xs text-text-muted hover:text-text disabled:opacity-20"
-          >↑</button>
-          <button
-            onClick={onMoveDown}
-            disabled={index === total - 1}
-            className="px-1.5 py-0.5 text-xs text-text-muted hover:text-text disabled:opacity-20"
-          >↓</button>
-          <button
-            onClick={onRemove}
-            className="px-1.5 py-0.5 text-xs text-red-400/60 hover:text-red-400"
-          >✕</button>
-        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={onMoveUp}
+              disabled={index === 0}
+              className="px-1.5 py-0.5 text-xs text-text-muted hover:text-text disabled:opacity-20"
+            >↑</button>
+            <button
+              onClick={onMoveDown}
+              disabled={index === total - 1}
+              className="px-1.5 py-0.5 text-xs text-text-muted hover:text-text disabled:opacity-20"
+            >↓</button>
+            <button
+              onClick={onRemove}
+              className="px-1.5 py-0.5 text-xs text-red-400/60 hover:text-red-400"
+            >✕</button>
+          </div>
+        )}
       </div>
 
       <p className="text-xs text-text-muted leading-relaxed">{step.rationale}</p>
@@ -142,7 +147,7 @@ function StepCard({
   )
 }
 
-export function PlanReviewStage({ session }: Props) {
+export function PlanReviewStage({ session, readOnly }: Props) {
   const { stage, transform_plan, baseline_quality_score } = session
 
   const [steps, setSteps] = useState<TransformPlanStep[]>(() => transform_plan?.steps ?? [])
@@ -221,6 +226,7 @@ export function PlanReviewStage({ session }: Props) {
             onRemove={() => removeStep(i)}
             onMoveUp={() => moveStep(i, 'up')}
             onMoveDown={() => moveStep(i, 'down')}
+            readOnly={readOnly}
           />
         ))}
         {steps.length === 0 && (
@@ -229,7 +235,7 @@ export function PlanReviewStage({ session }: Props) {
       </div>
 
       {/* Sticky approve bar */}
-      <div className="sticky bottom-4 pt-2">
+      {!readOnly && <div className="sticky bottom-4 pt-2">
         <div className="rounded-xl bg-elevated border border-border p-4 flex items-center justify-between gap-4 shadow-lg">
           <div className="text-sm text-text-muted">
             Adjusted projection: <span className="text-success-light font-semibold">{(adjustedProjection * 100).toFixed(1)}%</span>
@@ -248,7 +254,7 @@ export function PlanReviewStage({ session }: Props) {
             {error}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

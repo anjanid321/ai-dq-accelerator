@@ -195,5 +195,15 @@ export interface TargetEnv {
 export interface SessionListEntry {
   id: string
   filename: string
-  createdAt: string
+  stage: WorkflowStage
+  current_score: number
+  baseline_score: number
+  created_at: string
+  updated_at: string
+}
+
+export interface StageSnapshot<T = Record<string, unknown>> {
+  stage: string
+  payload: T
+  created_at: string
 }

@@ -12,9 +12,9 @@ const ARTIFACTS = [
   { icon: '🗄️', name: 'cleaned_data.parquet', desc: 'Cleaned dataset ready for immediate use' },
 ]
 
-interface Props { sessionId: string; stage: WorkflowStage }
+interface Props { sessionId: string; stage: WorkflowStage; readOnly?: boolean }
 
-export function PipelineStage({ sessionId, stage }: Props) {
+export function PipelineStage({ sessionId, stage, readOnly }: Props) {
   const [env, setEnv] = useState<TargetEnv>({ warehouse: 'duckdb', orchestrator: 'airflow', python_version: '3.11', schedule: '@daily', slack_channel: '' })
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
@@ -85,7 +85,7 @@ export function PipelineStage({ sessionId, stage }: Props) {
       {error && <div className="text-danger-light text-xs mb-3">{error}</div>}
 
       {/* CTA */}
-      <div className="flex gap-3">
+      {!readOnly && <div className="flex gap-3">
         {done ? (
           <>
             <button className="flex-1 bg-success text-black font-semibold text-sm py-3 rounded-xl cursor-default flex items-center justify-center gap-2">
@@ -105,7 +105,7 @@ export function PipelineStage({ sessionId, stage }: Props) {
             {generating ? 'Starting...' : 'Generate Pipeline →'}
           </button>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

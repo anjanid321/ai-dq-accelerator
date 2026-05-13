@@ -1,23 +1,22 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSessionList } from '@/hooks/useSessionList'
-import { useSession } from '@/hooks/useSession'
+import { useSessionsList } from '@/hooks/useSessionsList'
 import { SessionCard } from '@/components/sessions/SessionCard'
 import { UploadModal } from '@/components/sessions/UploadModal'
 
-function LiveSessionCard({ entry, onOpen }: { entry: { id: string; filename: string }; onOpen: () => void }) {
-  const { session } = useSession(entry.id)
-  return <SessionCard sessionId={entry.id} filename={entry.filename} state={session ?? null} onOpen={onOpen} />
-}
-
 export default function HomePage() {
   const router = useRouter()
-  const { sessions, addSession } = useSessionList()
+  const { sessions, refresh } = useSessionsList()
   const [showUpload, setShowUpload] = useState(false)
 
-  function handleCreated(id: string, filename: string) {
-    addSession({ id, filename, createdAt: new Date().toISOString() })
+  // Clean up legacy localStorage key on first load
+  if (typeof window !== 'undefined') {
+    try { window.localStorage.removeItem('dq_sessions') } catch {}
+  }
+
+  function handleCreated(id: string) {
+    refresh()
     setShowUpload(false)
     router.push(`/sessions/${id}`)
   }
@@ -42,7 +41,12 @@ export default function HomePage() {
           <div className="text-[10px] uppercase tracking-widest text-text-muted mb-3">Recent Sessions</div>
           <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
             {sessions.map(s => (
-              <LiveSessionCard key={s.id} entry={s} onOpen={() => router.push(`/sessions/${s.id}`)} />
+              <SessionCard
+                key={s.id}
+                entry={s}
+                onOpen={() => router.push(`/sessions/${s.id}`)}
+                onDeleted={() => refresh()}
+              />
             ))}
             <div
               className="bg-surface border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center min-h-[160px] cursor-pointer hover:border-indigo/30 gap-2"

@@ -4,11 +4,12 @@ import type { SessionState } from '@/lib/types'
 interface Props {
   session: SessionState
   onContinue: () => void
+  readOnly?: boolean
 }
 
 type VarInfo = { type: string; n_missing: number; p_missing: number; n_distinct: number }
 
-export function ProfileStage({ session, onContinue }: Props) {
+export function ProfileStage({ session, onContinue, readOnly }: Props) {
   const profile = session.profile as any
   const table = profile?.table ?? {}
   const alerts: { column?: string; type?: string; description?: string }[] = profile?.alerts ?? []
@@ -82,7 +83,7 @@ export function ProfileStage({ session, onContinue }: Props) {
         </>
       )}
 
-      {isReady && (
+      {isReady && !readOnly && (
         <div className="flex justify-end">
           <button className="bg-indigo text-white text-sm font-medium px-5 py-2 rounded-lg" onClick={onContinue}>
             Continue to Rules →

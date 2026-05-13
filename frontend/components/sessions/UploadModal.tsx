@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import { createSession } from '@/lib/api'
 
 interface Props {
-  onCreated: (id: string, filename: string) => void
+  onCreated: (id: string) => void
   onClose: () => void
 }
 
@@ -20,7 +20,7 @@ export function UploadModal({ onCreated, onClose }: Props) {
     setError('')
     try {
       const res = await createSession(file, useCase)
-      onCreated(res.session_id, file.name)
+      onCreated(res.session_id)
     } catch (e) {
       setError(String(e))
     } finally {

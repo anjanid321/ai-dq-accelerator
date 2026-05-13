@@ -5,13 +5,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: '#070a0f',
-        surface: '#0f1420',
-        elevated: '#0c0f1a',
-        border: '#1e2035',
-        'text-primary': '#f1f5f9',
-        'text-secondary': '#94a3b8',
-        'text-muted': '#475569',
+        bg: '#f8fafc',
+        surface: '#ffffff',
+        'surface-raised': '#f8fafc',
+        elevated: '#f1f5f9',
+        border: '#e2e8f0',
+        'text-primary': '#0f172a',
+        'text-secondary': '#475569',
+        'text-muted': '#94a3b8',
         indigo: { DEFAULT: '#6366f1', light: '#818cf8' },
         success: { DEFAULT: '#22c55e', light: '#4ade80' },
         warning: { DEFAULT: '#f59e0b', light: '#fbbf24' },

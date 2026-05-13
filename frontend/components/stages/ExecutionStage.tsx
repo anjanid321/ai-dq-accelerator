@@ -6,6 +6,7 @@ import { CodeBlock } from './CodeBlock'
 
 interface Props {
   session: SessionState
+  readOnly?: boolean
 }
 
 const STATUS_ICONS: Record<string, string> = {
@@ -124,7 +125,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
   const hasDetail = Object.keys(step.params ?? {}).length > 0 || step.custom_code || (step.targets_rules?.length > 0) || step.intent || step.approach
 
   return (
-    <div className="rounded-lg hover:bg-white/3">
+    <div className="rounded-lg hover:bg-black/5">
       <div
         className={`flex items-center gap-3 py-2 px-3 ${hasDetail ? 'cursor-pointer' : ''}`}
         onClick={() => hasDetail && setExpanded(v => !v)}
@@ -400,7 +401,7 @@ function EscalationOverlay({
   )
 }
 
-export function ExecutionStage({ session }: Props) {
+export function ExecutionStage({ session, readOnly }: Props) {
   const { stage, transform_plan, current_score, baseline_quality_score, execution_escalation } = session
   const steps = transform_plan?.steps ?? []
 
@@ -464,8 +465,8 @@ export function ExecutionStage({ session }: Props) {
       </div>
 
       {/* Escalation overlay */}
-      {isEscalated && execution_escalation && (
-        <EscalationOverlay escalation={execution_escalation} onResolve={handleResolve} />
+      {isEscalated && execution_escalation && !readOnly && (
+        <EscalationOverlay escalation={execution_escalation} step={escalatedStep} onResolve={handleResolve} />
       )}
     </div>
   )

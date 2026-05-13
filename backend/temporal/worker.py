@@ -17,6 +17,9 @@ if _env_path.exists():
 from temporalio.client import Client  # noqa: E402
 from temporalio.worker import Worker  # noqa: E402
 
+from backend.db.engine import build_engine, set_engine, dispose_engine  # noqa: E402
+from backend.temporal.activities.snapshot_activities import snapshot_stage  # noqa: E402
+
 from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow  # noqa: E402
 from backend.temporal.activities.data_activities import (  # noqa: E402
     load_dataset_activity,
@@ -60,6 +63,9 @@ async def main():
     logger.info(f"Connecting to Temporal at {temporal_host} (namespace: {temporal_namespace})")
     client = await Client.connect(temporal_host, namespace=temporal_namespace)
 
+    set_engine(build_engine())
+    logger.info("App DB engine initialized")
+
     worker = Worker(
         client,
         task_queue=TASK_QUEUE,
@@ -85,11 +91,13 @@ async def main():
             export_working_dataset_activity,
             zip_output_activity,
             triage_rules_activity,
+            snapshot_stage,
         ],
     )
 
     logger.info(f"Worker started on task queue: {TASK_QUEUE}")
     await worker.run()
+    await dispose_engine()
 
 
 if __name__ == "__main__":

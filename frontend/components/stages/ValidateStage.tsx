@@ -3,6 +3,7 @@ import type { SessionState, PerRuleResult } from '@/lib/types'
 
 interface Props {
   session: SessionState | null
+  readOnly?: boolean
 }
 
 function CategoryPill({ label, score }: { label: string; score: number }) {

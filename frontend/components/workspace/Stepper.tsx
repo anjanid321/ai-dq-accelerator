@@ -35,7 +35,7 @@ export function Stepper({ activeStage, completedStages, viewingStage, onStageCli
         return (
           <div key={s.id}>
             <div
-              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${viewing ? 'bg-indigo/10' : ''} ${clickable ? 'cursor-pointer hover:bg-white/5' : ''} ${locked ? 'opacity-35' : ''}`}
+              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${viewing ? 'bg-indigo/10' : ''} ${clickable ? 'cursor-pointer hover:bg-black/5' : ''} ${locked ? 'opacity-35' : ''}`}
               onClick={() => clickable && onStageClick(s.id)}
             >
               <div className={`w-2 h-2 rounded-full shrink-0 ${done ? 'bg-success' : active ? 'bg-indigo shadow-[0_0_6px_#6366f1]' : 'bg-border border border-text-muted'}`} />

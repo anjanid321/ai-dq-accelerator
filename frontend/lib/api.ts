@@ -1,4 +1,4 @@
-import type { CreateSessionResponse, SessionState, ScorecardResponse, Rule, TargetEnv, TriageResult, TransformPlanStep } from './types'
+import type { CreateSessionResponse, SessionState, SessionListEntry, StageSnapshot, ScorecardResponse, Rule, TargetEnv, TriageResult, TransformPlanStep } from './types'
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options)
@@ -139,4 +139,21 @@ export async function resolveEscalation(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, instruction, modified_params: modifiedParams }),
   })
+}
+
+export async function listSessions(): Promise<SessionListEntry[]> {
+  return request('/api/v1/sessions')
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  const res = await fetch(`/api/v1/sessions/${id}`, { method: 'DELETE' })
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`${res.status} delete /sessions/${id}`)
+  }
+}
+
+export async function getStageSnapshot<T = Record<string, unknown>>(
+  sessionId: string, stage: string
+): Promise<StageSnapshot<T>> {
+  return request(`/api/v1/sessions/${sessionId}/stages/${stage}`)
 }

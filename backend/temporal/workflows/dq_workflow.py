@@ -33,6 +33,7 @@ with workflow.unsafe.imports_passed_through():
         zip_output_activity,
     )
     from backend.temporal.activities.triage_activities import triage_rules_activity
+    from backend.temporal.activities.snapshot_activities import snapshot_stage
 
 ACTIVITY_RETRY = RetryPolicy(maximum_attempts=3, initial_interval=timedelta(seconds=2))
 ACTIVITY_TIMEOUT = timedelta(minutes=10)
@@ -251,6 +252,30 @@ class DQAcceleratorWorkflow:
         self.stage = "TRANSFORMATION_LOOP"
         return decision
 
+    async def _snapshot(self, ui_stage: str, payload: dict) -> None:
+        """Persist a stage snapshot. Best-effort — failures are logged, not raised."""
+        session_updates = {
+            "stage": self.stage,
+            "current_score": self.current_score,
+            "baseline_score": self.baseline_quality_score,
+            "output_dir": self.output_dir or None,
+            "zip_path": self.zip_path or None,
+        }
+        try:
+            await workflow.execute_activity(
+                snapshot_stage,
+                {
+                    "session_id": self.session_id,
+                    "stage": ui_stage,
+                    "payload": payload,
+                    "session_updates": session_updates,
+                },
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=ACTIVITY_RETRY,
+            )
+        except Exception:
+            workflow.logger.exception("snapshot_stage failed for %s", ui_stage)
+
     # ── Main workflow run ────────────────────────────────────────────────────
 
     @workflow.run
@@ -358,6 +383,24 @@ class DQAcceleratorWorkflow:
         self.suggested_rules = profile_result["suggested_rules"]
         self.top_issues = profile_result.get("top_issues", [])
 
+        await self._snapshot("profile", {
+            "profile": self.profile,
+            "ai_summary": self.ai_summary,
+        })
+
+        _explore_events: list = []
+        try:
+            import json as _json
+            from pathlib import Path as _Path
+            _progress = _Path("data/sessions") / self.session_id / "investigation_progress.jsonl"
+            if _progress.exists():
+                _explore_events = [
+                    _json.loads(_l) for _l in _progress.read_text().splitlines() if _l.strip()
+                ]
+        except Exception:
+            workflow.logger.exception("could not freeze investigation_progress.jsonl")
+        await self._snapshot("explore", {"investigation_events": _explore_events})
+
         # ── Stage: RULE_REVIEW ─────────────────────────────────────────────
         self.stage = "RULE_REVIEW"
         review_result = await workflow.execute_activity(
@@ -377,6 +420,14 @@ class DQAcceleratorWorkflow:
         # ── Stage: AWAITING_RULE_APPROVAL ──────────────────────────────────
         self.stage = "AWAITING_RULE_APPROVAL"
         await workflow.wait_condition(lambda: self.approved_rules is not None)
+
+        _approved_ids = [r["id"] for r in (self.approved_rules or [])]
+        _rejected_ids = [r["id"] for r in self.suggested_rules if r["id"] not in set(_approved_ids)]
+        await self._snapshot("rules", {
+            "suggested_rules": self.suggested_rules,
+            "approved_rule_ids": _approved_ids,
+            "rejected_rule_ids": _rejected_ids,
+        })
 
         # ── Stage: VALIDATING ──────────────────────────────────────────────
         self.stage = "VALIDATING"
@@ -415,6 +466,12 @@ class DQAcceleratorWorkflow:
         self.validation_summary = analyze_result.get("validation_summary", "")
         self.anomaly_narrative = analyze_result.get("anomaly_summary", "")
         self.transformation_queue = analyze_result.get("transformation_queue", [])
+
+        await self._snapshot("validate", {
+            "validation_summary": self.validation_summary,
+            "validation_results": self.validation_results,
+            "baseline_score": self.baseline_quality_score,
+        })
 
         # ── Stage: TRIAGING ────────────────────────────────────────────────
         self.stage = "TRIAGING"
@@ -479,6 +536,14 @@ class DQAcceleratorWorkflow:
                 self.baseline_quality_score = amended_validation["baseline_quality_score"]
                 self.current_score = self.baseline_quality_score
 
+        if self.triage_result:
+            _triage_amendments = self.triage_amendments or {}
+            await self._snapshot("triage", {
+                "triage_result": self.triage_result,
+                "threshold_changes": _triage_amendments.get("accepted_threshold_changes", []),
+                "rejected_rule_ids": _triage_amendments.get("rejected_rule_ids", []),
+            })
+
         # ── Stage: PLANNING ────────────────────────────────────────────────
         self.stage = "PLANNING"
 
@@ -539,6 +604,8 @@ class DQAcceleratorWorkflow:
         approved_steps = self.plan_decision["steps"]
         self.transform_plan = {**self.transform_plan, "steps": approved_steps}
         self.plan_decision = None
+
+        await self._snapshot("plan", {"transform_plan": self.transform_plan})
 
         # ── Stage: TRANSFORMATION_LOOP ─────────────────────────────────────
         self.stage = "TRANSFORMATION_LOOP"
@@ -958,6 +1025,13 @@ class DQAcceleratorWorkflow:
         if self.transform_plan:
             self.transform_plan = {**self.transform_plan, "steps": steps}
 
+        await self._snapshot("transform", {
+            "transformation_log": self.transformation_log,
+            "anomaly_summary": self.anomaly_narrative,
+            "execution_escalation": self.execution_escalation,
+            "transform_plan": self.transform_plan,
+        })
+
         # ── Generate scorecard summary ─────────────────────────────────────
         scorecard_summary = await workflow.execute_activity(
             generate_scorecard_summary_activity,
@@ -972,6 +1046,12 @@ class DQAcceleratorWorkflow:
         )
         self.scorecard = scorecard_summary.get("scorecard", {})
         self.narrative = scorecard_summary.get("narrative", "")
+
+        await self._snapshot("scorecard", {
+            "scorecard": self.scorecard,
+            "narrative": self.narrative,
+            "current_score": self.current_score,
+        })
 
         # ── Stage: AWAITING_PIPELINE_CONFIRMATION ──────────────────────────
         self.stage = "AWAITING_PIPELINE_CONFIRMATION"
@@ -1009,6 +1089,11 @@ class DQAcceleratorWorkflow:
 
         # ── Stage: COMPLETE ────────────────────────────────────────────────
         self.stage = "COMPLETE"
+
+        await self._snapshot("pipeline", {
+            "output_dir": self.output_dir,
+            "zip_path": self.zip_path,
+        })
 
         return {
             "session_id": self.session_id,

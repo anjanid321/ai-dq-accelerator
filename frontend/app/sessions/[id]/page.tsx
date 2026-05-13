@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useSession } from '@/hooks/useSession'
 import { useAIStream } from '@/hooks/useAIStream'
-import { useSessionList } from '@/hooks/useSessionList'
+import { useSessionsList } from '@/hooks/useSessionsList'
 import { TopBar } from '@/components/workspace/TopBar'
 import { Stepper, type StageId } from '@/components/workspace/Stepper'
 import { AIPanel } from '@/components/ai-panel/AIPanel'
@@ -18,6 +18,7 @@ import { ScorecardStage } from '@/components/stages/ScorecardStage'
 import { PipelineStage } from '@/components/stages/PipelineStage'
 import { TriageStage } from '@/components/stages/TriageStage'
 import { ExplorationStage } from '@/components/stages/ExplorationStage'
+import { SnapshotStageView } from '@/components/stages/SnapshotStageView'
 
 function workflowToStepper(stage: string): { active: StageId; completed: StageId[] } {
   const ORDER: StageId[] = ['load', 'profile', 'explore', 'rules', 'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline']
@@ -51,10 +52,11 @@ const WAITING_MESSAGES: Record<string, string> = {
 
 export default function WorkspacePage() {
   const { id } = useParams<{ id: string }>()
-  const { session, isLoading } = useSession(id)
-  const { events } = useAIStream(id)
-  const { sessions } = useSessionList()
   const [viewingStage, setViewingStage] = useState<StageId | null>(null)
+  const isViewingPast = viewingStage !== null
+  const { session, isLoading } = useSession(id, { enabled: !isViewingPast })
+  const { events } = useAIStream(id)
+  const { sessions } = useSessionsList()
 
   const filename = sessions.find(s => s.id === id)?.filename ?? id
   const stage = session?.stage ?? 'LOADING'
@@ -106,7 +108,11 @@ export default function WorkspacePage() {
               <button className="underline" onClick={() => setViewingStage(null)}>Return →</button>
             </div>
           )}
-          <div className="flex-1 overflow-y-auto">{renderStage()}</div>
+          <div className="flex-1 overflow-y-auto">
+            {isPastStage
+              ? <SnapshotStageView sessionId={id} stage={viewingStage!} />
+              : renderStage()}
+          </div>
         </div>
         <AIPanel
           events={events}

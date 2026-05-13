@@ -3,22 +3,27 @@ from __future__ import annotations
 
 import json
 import os
-import uuid
+import shutil
+import uuid as _uuid
 from pathlib import Path
 
 import aiofiles
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from temporalio.service import RPCError, RPCStatusCode
 
 from backend.api.schemas import (
     CreateSessionResponse,
     SessionStateResponse,
+    SessionListItem,
+    StageSnapshotResponse,
     WorkflowStage,
     CurrentSuggestion,
     TransformationPreview,
     TransformationLogEntry,
 )
+from backend.db.engine import get_sessionmaker
+from backend.db.repository import insert_session, list_active_sessions, delete_session as db_delete_session, get_snapshot, get_session_row
 from backend.temporal.workflows.dq_workflow import DQAcceleratorWorkflow
 
 router = APIRouter()
@@ -34,6 +39,25 @@ def _project_root() -> Path:
             return p
         p = p.parent
     return Path(".")
+
+
+@router.get("/sessions", response_model=list[SessionListItem])
+async def list_sessions(request: Request):
+    sm = get_sessionmaker()
+    async with sm() as db:
+        rows = await list_active_sessions(db)
+    return [
+        SessionListItem(
+            id=str(r.id),
+            filename=r.filename,
+            stage=WorkflowStage(r.stage) if r.stage in WorkflowStage._value2member_map_ else WorkflowStage.LOADING,
+            current_score=r.current_score or 0.0,
+            baseline_score=r.baseline_score or 0.0,
+            created_at=r.created_at.isoformat(),
+            updated_at=r.updated_at.isoformat(),
+        )
+        for r in rows
+    ]
 
 
 @router.post("/sessions", response_model=CreateSessionResponse)
@@ -53,7 +77,8 @@ async def create_session(
             detail=f"Unsupported file type '{suffix}'. Allowed: {ALLOWED_EXTENSIONS}",
         )
 
-    session_id = str(uuid.uuid4())
+    session_uuid = _uuid.uuid4()
+    session_id = str(session_uuid)
     project_root = _project_root()
     session_dir = project_root / DATA_DIR / "sessions" / session_id / "raw"
     session_dir.mkdir(parents=True, exist_ok=True)
@@ -67,6 +92,19 @@ async def create_session(
     # Start Temporal workflow
     client = request.app.state.temporal_client
     task_queue = request.app.state.task_queue
+
+    sm = get_sessionmaker()
+    async with sm() as db:
+        await insert_session(
+            db,
+            id=session_uuid,
+            filename=file.filename or f"input{suffix}",
+            file_ext=suffix.lstrip("."),
+            use_case=use_case or None,
+            target_column=target_column,
+            description=description,
+        )
+        await db.commit()
 
     await client.start_workflow(
         DQAcceleratorWorkflow.run,
@@ -90,22 +128,119 @@ async def create_session(
     )
 
 
+@router.get("/sessions/{session_id}/stages/{stage}", response_model=StageSnapshotResponse)
+async def get_stage_snapshot(session_id: str, stage: str):
+    try:
+        sid_uuid = _uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    sm = get_sessionmaker()
+    async with sm() as db:
+        snap = await get_snapshot(db, sid_uuid, stage)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    return StageSnapshotResponse(
+        stage=snap.stage,
+        payload=snap.payload,
+        created_at=snap.created_at.isoformat(),
+    )
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session(session_id: str, request: Request):
+    # 1. Terminate the workflow if it exists
+    client = request.app.state.temporal_client
+    try:
+        handle = client.get_workflow_handle(session_id)
+        await handle.terminate(reason="user-deleted")
+    except RPCError as e:
+        if e.status != RPCStatusCode.NOT_FOUND:
+            raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        # Best-effort: a handle terminate may also raise if the workflow
+        # is already completed; that's fine.
+        pass
+
+    # 2. Delete the DB row (cascades stage_snapshots)
+    try:
+        sid_uuid = _uuid.UUID(session_id)
+    except ValueError:
+        return Response(status_code=204)
+    sm = get_sessionmaker()
+    async with sm() as db:
+        await db_delete_session(db, sid_uuid)
+        await db.commit()
+
+    # 3. Remove on-disk artifacts
+    project_root = _project_root()
+    shutil.rmtree(project_root / DATA_DIR / "sessions" / session_id, ignore_errors=True)
+    shutil.rmtree(project_root / "output" / "sessions" / session_id, ignore_errors=True)
+
+    return Response(status_code=204)
+
+
 @router.get("/sessions/{session_id}", response_model=SessionStateResponse)
 async def get_session(session_id: str, request: Request):
-    """Get current state of a DQ session by querying the Temporal workflow."""
-    client = request.app.state.temporal_client
+    """Get current state of a DQ session.
 
+    Reads live from the Temporal workflow when available. If Temporal returns
+    NOT_FOUND (workflow retention expired), hydrates from the DB row + the
+    most-advanced snapshot."""
+    client = request.app.state.temporal_client
+    state: dict | None = None
     try:
         handle = client.get_workflow_handle(session_id)
         state = await handle.query(DQAcceleratorWorkflow.get_full_state)
     except RPCError as e:
-        if e.status == RPCStatusCode.NOT_FOUND:
-            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
-        raise HTTPException(status_code=500, detail=str(e))
+        if e.status != RPCStatusCode.NOT_FOUND:
+            raise HTTPException(status_code=500, detail=str(e))
+        # fall through to DB hydration
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Build current_suggestion from state
+    if state is None:
+        # Hydrate from DB
+        try:
+            sid_uuid = _uuid.UUID(session_id)
+        except ValueError:
+            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+        sm = get_sessionmaker()
+        async with sm() as db:
+            row = await get_session_row(db, sid_uuid)
+            if row is None:
+                raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+            # Pick the most-advanced snapshot to hydrate fields. Order matches the workflow.
+            STAGE_ORDER = ["pipeline", "scorecard", "transform", "plan", "triage",
+                           "validate", "rules", "explore", "profile"]
+            payload: dict = {}
+            for stage_name in STAGE_ORDER:
+                snap = await get_snapshot(db, sid_uuid, stage_name)
+                if snap is not None:
+                    payload = {**snap.payload, **payload}  # earlier stage values fill gaps
+        state = {
+            "stage": row.stage,
+            "session_id": session_id,
+            "profile": payload.get("profile", {}),
+            "ai_summary": payload.get("ai_summary", ""),
+            "suggested_rules": payload.get("suggested_rules", []),
+            "baseline_quality_score": row.baseline_score or 0.0,
+            "current_score": row.current_score or 0.0,
+            "validation_summary": payload.get("validation_summary", ""),
+            "anomaly_summary": payload.get("anomaly_summary", ""),
+            "current_suggestion": None,
+            "current_preview": None,
+            "transformation_log": payload.get("transformation_log", []),
+            "scorecard": payload.get("scorecard", {}),
+            "narrative": payload.get("narrative", ""),
+            "output_dir": row.output_dir or "",
+            "zip_path": row.zip_path or "",
+            "validation_results": payload.get("validation_results", {}),
+            "triage_result": payload.get("triage_result", {}),
+            "transform_plan": payload.get("transform_plan"),
+            "execution_escalation": payload.get("execution_escalation"),
+        }
+
+    # Existing response building (unchanged):
     current_suggestion = None
     raw_suggestion = state.get("current_suggestion")
     raw_preview = state.get("current_preview")
