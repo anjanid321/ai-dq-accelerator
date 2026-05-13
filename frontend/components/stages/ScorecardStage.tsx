@@ -78,7 +78,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
   )
 }
 
-export function ScorecardStage({ sessionId }: { sessionId: string }) {
+export function ScorecardStage({ sessionId }: { sessionId: string; readOnly?: boolean }) {
   const [data, setData] = useState<ScorecardResponse | null>(null)
 
   useEffect(() => {

@@ -18,6 +18,7 @@ import { ScorecardStage } from '@/components/stages/ScorecardStage'
 import { PipelineStage } from '@/components/stages/PipelineStage'
 import { TriageStage } from '@/components/stages/TriageStage'
 import { ExplorationStage } from '@/components/stages/ExplorationStage'
+import { SnapshotStageView } from '@/components/stages/SnapshotStageView'
 
 function workflowToStepper(stage: string): { active: StageId; completed: StageId[] } {
   const ORDER: StageId[] = ['load', 'profile', 'explore', 'rules', 'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline']
@@ -107,7 +108,11 @@ export default function WorkspacePage() {
               <button className="underline" onClick={() => setViewingStage(null)}>Return →</button>
             </div>
           )}
-          <div className="flex-1 overflow-y-auto">{renderStage()}</div>
+          <div className="flex-1 overflow-y-auto">
+            {isPastStage
+              ? <SnapshotStageView sessionId={id} stage={viewingStage!} />
+              : renderStage()}
+          </div>
         </div>
         <AIPanel
           events={events}

@@ -6,6 +6,7 @@ import { CodeBlock } from './CodeBlock'
 
 interface Props {
   session: SessionState
+  readOnly?: boolean
 }
 
 const STATUS_ICONS: Record<string, string> = {
@@ -400,7 +401,7 @@ function EscalationOverlay({
   )
 }
 
-export function ExecutionStage({ session }: Props) {
+export function ExecutionStage({ session, readOnly }: Props) {
   const { stage, transform_plan, current_score, baseline_quality_score, execution_escalation } = session
   const steps = transform_plan?.steps ?? []
 
@@ -464,8 +465,8 @@ export function ExecutionStage({ session }: Props) {
       </div>
 
       {/* Escalation overlay */}
-      {isEscalated && execution_escalation && (
-        <EscalationOverlay escalation={execution_escalation} onResolve={handleResolve} />
+      {isEscalated && execution_escalation && !readOnly && (
+        <EscalationOverlay escalation={execution_escalation} step={escalatedStep} onResolve={handleResolve} />
       )}
     </div>
   )

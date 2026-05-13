@@ -11,9 +11,9 @@ const CAT_COLORS: Record<string, string> = {
   uniqueness: 'bg-purple/20 text-purple-light',
 }
 
-interface Props { session: SessionState }
+interface Props { session: SessionState; readOnly?: boolean }
 
-export function RulesStage({ session }: Props) {
+export function RulesStage({ session, readOnly }: Props) {
   const rules = session.suggested_rules as Rule[]
   const [decisions, setDecisions] = useState<Record<string, Decision>>(() => Object.fromEntries(rules.map(r => [r.id, 'pending'])))
   const [edits, setEdits] = useState<Record<string, Partial<Rule>>>({})
@@ -65,9 +65,11 @@ export function RulesStage({ session }: Props) {
               {f === 'all' ? `All (${rules.length})` : `${f} (${rules.filter(r => r.category === f).length})`}
             </button>
           ))}
-          <button className="ml-auto text-xs px-2.5 py-1 rounded-md border border-success/40 text-success-light bg-success/10" onClick={approveAll}>
-            Approve All
-          </button>
+          {!readOnly && (
+            <button className="ml-auto text-xs px-2.5 py-1 rounded-md border border-success/40 text-success-light bg-success/10" onClick={approveAll}>
+              Approve All
+            </button>
+          )}
         </div>
 
         {/* Rule cards */}
@@ -80,17 +82,19 @@ export function RulesStage({ session }: Props) {
               <div className="flex items-start gap-2.5 mb-2">
                 <span className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${CAT_COLORS[rule.category] ?? ''}`}>{rule.category}</span>
                 <span className="font-mono text-sm text-text-primary flex-1">{edit.check ?? rule.check}</span>
-                <div className="flex gap-1 shrink-0">
-                  <button className={`text-[11px] font-medium px-2.5 py-1 rounded-md border ${d === 'approved' ? 'bg-success text-black border-success' : 'bg-success/20 text-success-light border-success/40'}`} onClick={() => decide(rule.id, 'approved')}>
-                    {d === 'approved' ? '✓ Approved' : '✓'}
-                  </button>
-                  <button className={`text-[11px] font-medium px-2.5 py-1 rounded-md border ${d === 'rejected' ? 'bg-danger text-white border-danger' : 'bg-danger/20 text-danger-light border-danger/40'}`} onClick={() => decide(rule.id, 'rejected')}>
-                    {d === 'rejected' ? '✗ Rejected' : '✗'}
-                  </button>
-                  <button className={`text-[11px] font-medium px-2.5 py-1 rounded-md border ${editing ? 'bg-warning text-black border-warning' : 'bg-warning/15 text-warning border-warning/30'}`} onClick={() => setEditingId(editing ? null : rule.id)}>
-                    {editing ? '✎ Editing' : '✎'}
-                  </button>
-                </div>
+                {!readOnly && (
+                  <div className="flex gap-1 shrink-0">
+                    <button className={`text-[11px] font-medium px-2.5 py-1 rounded-md border ${d === 'approved' ? 'bg-success text-black border-success' : 'bg-success/20 text-success-light border-success/40'}`} onClick={() => decide(rule.id, 'approved')}>
+                      {d === 'approved' ? '✓ Approved' : '✓'}
+                    </button>
+                    <button className={`text-[11px] font-medium px-2.5 py-1 rounded-md border ${d === 'rejected' ? 'bg-danger text-white border-danger' : 'bg-danger/20 text-danger-light border-danger/40'}`} onClick={() => decide(rule.id, 'rejected')}>
+                      {d === 'rejected' ? '✗ Rejected' : '✗'}
+                    </button>
+                    <button className={`text-[11px] font-medium px-2.5 py-1 rounded-md border ${editing ? 'bg-warning text-black border-warning' : 'bg-warning/15 text-warning border-warning/30'}`} onClick={() => setEditingId(editing ? null : rule.id)}>
+                      {editing ? '✎ Editing' : '✎'}
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex gap-3 text-[11px] text-text-muted mb-1.5">
                 {rule.column && <span>column: {rule.column}</span>}
@@ -126,7 +130,7 @@ export function RulesStage({ session }: Props) {
       </div>
 
       {/* Sticky submit bar */}
-      <div className="bg-elevated border-t border-border px-5 py-3 flex items-center gap-4 shrink-0">
+      {!readOnly && <div className="bg-elevated border-t border-border px-5 py-3 flex items-center gap-4 shrink-0">
         <div className="flex gap-3 text-xs">
           <span className="text-success-light">✓ {approved} approved</span>
           <span className="text-danger-light">✗ {rejected} rejected</span>
@@ -135,7 +139,7 @@ export function RulesStage({ session }: Props) {
         <button className="ml-auto bg-indigo text-white text-sm font-medium px-5 py-2 rounded-lg disabled:opacity-40" disabled={!canSubmit || submitting} onClick={handleSubmit}>
           {submitting ? 'Submitting...' : 'Submit Decisions →'}
         </button>
-      </div>
+      </div>}
     </div>
   )
 }

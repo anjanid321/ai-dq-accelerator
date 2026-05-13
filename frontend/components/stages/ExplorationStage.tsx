@@ -5,6 +5,7 @@ import { getExplorationState, getNotebookHtmlUrl, getNotebookDownloadUrl, submit
 interface Props {
   sessionId: string
   stage: string
+  readOnly?: boolean
 }
 
 interface ExplorationState {
@@ -16,7 +17,7 @@ interface ExplorationState {
   exploration_findings: Record<string, unknown>
 }
 
-export function ExplorationStage({ sessionId, stage }: Props) {
+export function ExplorationStage({ sessionId, stage, readOnly }: Props) {
   const [state, setState] = useState<ExplorationState | null>(null)
   const [feedback, setFeedback] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -168,7 +169,7 @@ export function ExplorationStage({ sessionId, stage }: Props) {
         </div>
 
         {/* Feedback + action area */}
-        {state?.notebook_ready && (
+        {state?.notebook_ready && !readOnly && (
           <div className="mx-5 mt-4 mb-5">
             {!maxRoundsReached && (
               <div className="mb-3">

@@ -5,6 +5,7 @@ import { approveTriage } from '@/lib/api'
 
 interface Props {
   session: SessionState
+  readOnly?: boolean
 }
 
 type CardDecision = 'accept' | 'keep' | 'pending'
@@ -50,9 +51,10 @@ interface CardProps {
   item: TriageClassification
   decision: CardDecision
   onDecide: (ruleId: string, decision: CardDecision) => void
+  readOnly?: boolean
 }
 
-function TriageCard({ item, decision, onDecide }: CardProps) {
+function TriageCard({ item, decision, onDecide, readOnly }: CardProps) {
   const needsDecision = item.classification !== 'transform_fixable'
 
   const borderColor = {
@@ -76,7 +78,7 @@ function TriageCard({ item, decision, onDecide }: CardProps) {
 
       <p className="text-sm text-text-muted leading-relaxed mb-3">{item.reason}</p>
 
-      {needsDecision && (
+      {needsDecision && !readOnly && (
         <div className="space-y-2">
           {item.classification === 'threshold_too_strict' && item.proposed_threshold !== undefined && (
             <div className="text-xs text-text-muted/80 mb-2">
@@ -122,7 +124,7 @@ function TriageCard({ item, decision, onDecide }: CardProps) {
   )
 }
 
-export function TriageStage({ session }: Props) {
+export function TriageStage({ session, readOnly }: Props) {
   const { stage, triage_result } = session
 
   const [decisions, setDecisions] = useState<Record<string, CardDecision>>(() => {
@@ -243,12 +245,13 @@ export function TriageStage({ session }: Props) {
             item={item}
             decision={decisions[item.rule_id] ?? 'pending'}
             onDecide={setDecision}
+            readOnly={readOnly}
           />
         ))}
       </div>
 
       {/* Submit */}
-      {needsDecision.length > 0 && (
+      {needsDecision.length > 0 && !readOnly && (
         <div className="sticky bottom-4 pt-2">
           <div className="rounded-xl bg-elevated border border-border p-4 flex items-center justify-between gap-4 shadow-lg">
             <div className="text-sm text-text-muted">
