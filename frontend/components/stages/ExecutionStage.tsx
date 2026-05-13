@@ -125,7 +125,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
   const hasDetail = Object.keys(step.params ?? {}).length > 0 || step.custom_code || (step.targets_rules?.length > 0) || step.intent || step.approach
 
   return (
-    <div className="rounded-lg hover:bg-white/3">
+    <div className="rounded-lg hover:bg-black/5">
       <div
         className={`flex items-center gap-3 py-2 px-3 ${hasDetail ? 'cursor-pointer' : ''}`}
         onClick={() => hasDetail && setExpanded(v => !v)}
