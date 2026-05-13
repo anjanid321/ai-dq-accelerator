@@ -28,8 +28,6 @@ def _db_path_str(session_id: str) -> str:
 def _setup_cell(session_id: str) -> str:
     db_path = _db_path_str(session_id)
     return f"""import duckdb
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np

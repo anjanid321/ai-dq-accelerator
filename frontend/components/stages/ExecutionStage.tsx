@@ -261,6 +261,15 @@ function EscalationOverlay({
   const projected = escalation.context.projected as number | undefined
   const actual = escalation.context.actual as number | undefined
   const regressedRules = escalation.context.regressed_rule_ids as string[] | undefined
+  const beforeSample = Array.isArray(escalation.context.before_sample)
+    ? escalation.context.before_sample as Record<string, unknown>[]
+    : null
+  const afterSample = Array.isArray(escalation.context.after_sample)
+    ? escalation.context.after_sample as Record<string, unknown>[]
+    : null
+  const affectedRowCount = typeof escalation.context.affected_row_count === 'number'
+    ? escalation.context.affected_row_count
+    : null
 
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 p-4">
@@ -290,11 +299,12 @@ function EscalationOverlay({
           <pre className="text-xs text-red-400/80 bg-surface rounded p-2 overflow-x-auto">{lastError}</pre>
         )}
 
-        {isVerificationFailed && escalation.context.before_sample && escalation.context.after_sample && (
+        {isVerificationFailed && beforeSample && afterSample && (
           <BeforeAfterTables
-            beforeRows={escalation.context.before_sample as Record<string, unknown>[]}
-            afterRows={escalation.context.after_sample as Record<string, unknown>[]}
+            beforeRows={beforeSample}
+            afterRows={afterSample}
             targetColumns={step ? [step.column, step.params?.column as string | undefined].filter((c): c is string => Boolean(c)) : []}
+            affectedRowCount={affectedRowCount}
           />
         )}
         {isPreApplied && (

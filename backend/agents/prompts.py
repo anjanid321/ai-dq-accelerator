@@ -101,7 +101,7 @@ The notebook environment has these variables already in scope:
 - `plt`, `pd`, `np` — matplotlib.pyplot, pandas, numpy
 - All imports are done. Do not add import statements.
 
-Always end with `plt.tight_layout()` then `plt.show()`.
+Always end with `plt.tight_layout()`. Do not call `plt.show()` — Jupyter renders figures automatically.
 Keep code under 80 lines.
 
 **Important:** The `visualization_code` value must be a valid JSON string. Use `\n` (backslash-n) for line breaks — do NOT emit a literal multi-line string inside the JSON block.

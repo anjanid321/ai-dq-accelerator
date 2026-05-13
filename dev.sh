@@ -2,6 +2,7 @@
 set -e
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+HOST="127.0.0.1"
 
 # ── colours ──────────────────────────────────────────────────────────────────
 CYAN=$(printf '\033[0;36m')
@@ -14,10 +15,10 @@ RESET=$(printf '\033[0m')
 echo ""
 echo "${BOLD}DQ Accelerator — starting local dev stack${RESET}"
 echo ""
-echo "  ${CYAN}Backend API${RESET}    →  http://localhost:8000"
-echo "  ${CYAN}API Docs${RESET}       →  http://localhost:8000/docs"
-echo "  ${YELLOW}Temporal UI${RESET}    →  http://localhost:8088"
-echo "  ${GREEN}Frontend${RESET}       →  http://localhost:3000"
+echo "  ${CYAN}Backend API${RESET}    →  http://$HOST:8000"
+echo "  ${CYAN}API Docs${RESET}       →  http://$HOST:8000/docs"
+echo "  ${YELLOW}Temporal UI${RESET}    →  http://$HOST:8088"
+echo "  ${GREEN}Frontend${RESET}       →  http://$HOST:3000"
 echo ""
 
 # ── venv ──────────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ docker compose -f "$ROOT/docker-compose.yml" up -d postgresql temporal temporal-
 
 echo "Waiting for Temporal to be ready on :7233 ..."
 for i in $(seq 1 60); do
-  if nc -z localhost 7233 2>/dev/null; then
+  if nc -z "$HOST" 7233 2>/dev/null; then
     echo "${GREEN}Temporal is up.${RESET}"
     break
   fi
@@ -63,6 +64,12 @@ cleanup() {
   echo ""
   echo "${BOLD}Stopping app processes...${RESET}"
   kill "$API_PID" "$WORKER_PID" "$FRONTEND_PID" 2>/dev/null || true
+  child_pids=$(pgrep -P "$$" 2>/dev/null || true)
+  if [ -n "$child_pids" ]; then
+    kill $child_pids 2>/dev/null || true
+    sleep 0.5
+    kill -9 $child_pids 2>/dev/null || true
+  fi
   wait "$API_PID" "$WORKER_PID" "$FRONTEND_PID" 2>/dev/null || true
   echo "Done. (Docker infra left running — stop with: docker compose down)"
 }
@@ -71,7 +78,7 @@ trap cleanup EXIT INT TERM
 # ── FastAPI ───────────────────────────────────────────────────────────────────
 cd "$ROOT"
 echo "${CYAN}[api]${RESET}     Starting FastAPI on :8000 ..."
-"$UVICORN" backend.api.main:app --reload --port 8000 2>&1 | prefix "$API_PFX" &
+"$UVICORN" backend.api.main:app --reload --host "$HOST" --port 8000 2>&1 | prefix "$API_PFX" &
 API_PID=$!
 
 # ── Temporal worker ───────────────────────────────────────────────────────────
@@ -82,7 +89,7 @@ WORKER_PID=$!
 # ── Next.js frontend ──────────────────────────────────────────────────────────
 echo "${GREEN}[frontend]${RESET} Starting Next.js on :3000 ..."
 cd "$ROOT/frontend"
-npm run dev 2>&1 | prefix "$FE_PFX" &
+NEXT_PUBLIC_API_URL="http://$HOST:8000" npm run dev -- --hostname "$HOST" --port 3000 2>&1 | prefix "$FE_PFX" &
 FRONTEND_PID=$!
 
 # ── wait ──────────────────────────────────────────────────────────────────────

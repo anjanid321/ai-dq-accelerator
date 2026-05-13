@@ -16,6 +16,10 @@ const BADGE_LABEL: Record<string, string> = {
   thinking: 'THINKING',
 }
 
+function formatTimestamp(ts: string | number): string {
+  return new Date(ts).toLocaleTimeString()
+}
+
 export function EventFeed({ events }: { events: AIEvent[] }) {
   return (
     <div className="flex-1 overflow-y-auto p-2.5 flex flex-col gap-1.5">
@@ -26,7 +30,7 @@ export function EventFeed({ events }: { events: AIEvent[] }) {
               {BADGE_LABEL[ev.event] ?? ev.event.toUpperCase()}
             </span>
             {ev.tool != null && <span className="text-[10px] font-mono text-text-primary">{String(ev.tool)}</span>}
-            {ev.ts != null && <span className="text-[9px] text-border ml-auto">{new Date(ev.ts as string).toLocaleTimeString()}</span>}
+            {ev.ts != null && <span className="text-[9px] text-border ml-auto">{formatTimestamp(ev.ts)}</span>}
           </div>
           {ev.event === 'thinking'
             ? <p className="text-[10px] text-text-secondary italic leading-relaxed">{String(ev.content ?? ev.text ?? '')}</p>

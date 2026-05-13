@@ -604,7 +604,7 @@ def _notebook_code_for_transform(t: dict) -> tuple[str, str]:
         lines.append(f"print('After  — dtype:', df[{c!r}].dtype)")
 
     elif t_type == "custom":
-        code_str = params.get("code", "")
+        code_str = params.get("code") or t.get("custom_code", "")
         desc = params.get("description", "custom transformation")
         lines.append(f"# Custom: {desc}")
         lines.append("")

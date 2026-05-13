@@ -3,7 +3,7 @@ import { getAIStreamUrl } from '@/lib/api'
 
 export interface AIEvent {
   event: string
-  ts?: number
+  ts?: string | number
   [key: string]: unknown
 }
 

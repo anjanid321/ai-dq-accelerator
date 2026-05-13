@@ -132,8 +132,13 @@ def _apply_transform(df: pd.DataFrame, spec: dict) -> tuple[pd.DataFrame, int]:
         if col and col in new_df.columns and (pattern or sentinel_values):
             invalid_mask = pd.Series(False, index=new_df.index)
             if pattern:
-                valid_mask = new_df[col].astype(str).str.match(pattern, na=False) | new_df[col].isna()
-                invalid_mask = invalid_mask | ~valid_mask
+                # Regex matching only makes sense for string/text columns.
+                # For numeric columns the values are already typed; casting to str
+                # produces representations like "1000.0" that break most patterns.
+                # Use sentinel_values or filter_rows for numeric validation instead.
+                if not pd.api.types.is_numeric_dtype(new_df[col]):
+                    valid_mask = new_df[col].astype(str).str.match(pattern, na=False) | new_df[col].isna()
+                    invalid_mask = invalid_mask | ~valid_mask
             if sentinel_values:
                 # Only flag non-null values whose string representation is in the sentinel list
                 sentinel_mask = new_df[col].notna() & new_df[col].astype(str).isin(sentinel_values)
