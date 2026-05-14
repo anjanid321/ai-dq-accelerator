@@ -86,6 +86,21 @@ echo "${YELLOW}[worker]${RESET}  Starting Temporal worker ..."
 "$PYTHON" -m backend.temporal.worker 2>&1 | prefix "$WRK_PFX" &
 WORKER_PID=$!
 
+# ── wait for API to finish startup (lifespan: alembic + temporal) ─────────────
+echo "Waiting for API to be ready on :8000 ..."
+for i in $(seq 1 60); do
+  if curl -sf "http://$HOST:8000/health" >/dev/null 2>&1; then
+    echo "${GREEN}API is up.${RESET}"
+    break
+  fi
+  if [ "$i" -eq 60 ]; then
+    echo "${RED}ERROR:${RESET} API did not become ready after 60 seconds."
+    exit 1
+  fi
+  sleep 1
+done
+echo ""
+
 # ── Next.js frontend ──────────────────────────────────────────────────────────
 echo "${GREEN}[frontend]${RESET} Starting Next.js on :3000 ..."
 cd "$ROOT/frontend"

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import (
 _engine: AsyncEngine | None = None
 _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
-DEFAULT_DSN = "postgresql+asyncpg://temporal:temporal@localhost:5432/temporal"
+DEFAULT_DSN = "postgresql+asyncpg://temporal:temporal@localhost:5433/temporal"
 
 
 def dsn_from_env() -> str:
