@@ -3,12 +3,58 @@
 @tailwind utilities;
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  /* Brand — UDig defaults (overridden at runtime by ThemeProvider) */
+  --color-brand-primary:    #FF8200;
+  --color-brand-accent:     #002B40;
+  --color-brand-on-primary: #FFFFFF;
+
+  /* Surfaces */
+  --color-bg-canvas:    #F8FAFC;
+  --color-bg-surface:   #FFFFFF;
+  --color-bg-elevated:  #F1F5F9;
+
+  /* Text */
+  --color-fg-default: #0F172A;
+  --color-fg-muted:   #475569;
+  --color-fg-subtle:  #94A3B8;
+  --color-fg-inverse: #FFFFFF;
+
+  /* Borders */
+  --color-border-subtle: #E2E8F0;
+  --color-border-strong: #CBD5E1;
+
+  /* Semantic (decorative — borders, dots, icons) */
+  --color-semantic-success: #22C55E;
+  --color-semantic-warning: #F59E0B;
+  --color-semantic-danger:  #EF4444;
+  --color-semantic-info:    #3B82F6;
+
+  /* Semantic deep (accessible text on white surfaces) */
+  --color-semantic-success-deep: #15803D;
+  --color-semantic-warning-deep: #B45309;
+  --color-semantic-danger-deep:  #B91C1C;
+  --color-semantic-info-deep:    #1D4ED8;
+
+  /* Accent (AI event types) */
+  --color-accent-purple:      #9333EA;
+  --color-accent-purple-deep: #6B21A8;
+  --color-accent-indigo:      #6366F1;
+  --color-accent-indigo-deep: #3730A3;
+
+  /* Type */
+  --font-body:    'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-display: var(--font-body);
+  --font-mono:    ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Radius */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-full: 9999px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg-canvas);
+  color: var(--color-fg-default);
+  font-family: var(--font-body);
 }
