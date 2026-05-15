@@ -100,6 +100,7 @@ export default function WorkspacePage() {
           completedStages={completed}
           viewingStage={displayStage}
           onStageClick={setViewingStage}
+          activeSubStatus={WAITING_MESSAGES[stage]}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
           {isPastStage && (

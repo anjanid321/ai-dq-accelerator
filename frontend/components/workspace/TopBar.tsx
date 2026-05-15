@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Logo } from '@/components/theme/Logo'
 
 interface Props {
   filename: string
@@ -8,21 +9,66 @@ interface Props {
 }
 
 export function TopBar({ filename, rowCount, colCount, currentScore }: Props) {
-  const pct = currentScore ? Math.round(currentScore * 100) : null
-  const scoreColor = pct === null ? '' : pct >= 90 ? 'text-success-light border-success/40 bg-success/10' : pct >= 70 ? 'text-warning border-warning/40 bg-warning/10' : 'text-danger-light border-danger/40 bg-danger/10'
+  const pct = currentScore != null ? Math.round(currentScore * 100) : null
+
+  const variant =
+    pct === null ? null : pct >= 90 ? 'success' : pct >= 70 ? 'warning' : 'danger'
+
+  const chipClass =
+    variant === 'success'
+      ? 'border-success text-success-deep'
+      : variant === 'warning'
+      ? 'border-warning text-warning-deep'
+      : 'border-danger text-danger-deep'
 
   return (
-    <div className="h-11 bg-elevated border-b border-border flex items-center gap-3 px-4 shrink-0">
-      <div className="w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>⬡</div>
-      <Link href="/" className="text-text-muted text-xs hover:text-text-secondary">← Sessions</Link>
-      <span className="text-border">/</span>
-      <span className="font-semibold text-sm text-text-primary">{filename}</span>
-      {rowCount && <span className="text-xs text-text-muted">{rowCount.toLocaleString()} rows · {colCount} cols</span>}
-      {pct !== null && (
-        <div className={`ml-auto border rounded-full px-2.5 py-0.5 text-xs font-semibold ${scoreColor}`}>
+    <div className="h-14 bg-elevated border-b border-border flex items-center gap-3 px-4 shrink-0">
+      {/* Logo */}
+      <Logo />
+
+      {/* App title */}
+      <span className="text-sm font-semibold text-fg">DQ Accelerator</span>
+
+      {/* Vertical separator */}
+      <span className="w-px h-[18px] bg-border self-center" />
+
+      {/* Sessions link */}
+      <Link href="/" className="text-sm text-fg-muted hover:text-fg">
+        ← Sessions
+      </Link>
+
+      {/* Breadcrumb slash */}
+      <span className="text-border-strong">/</span>
+
+      {/* Filename */}
+      <span className="text-sm font-semibold text-fg">{filename}</span>
+
+      {/* Row/col metadata */}
+      {rowCount != null && (
+        <span className="text-xs text-fg-muted">
+          {rowCount.toLocaleString()} rows · {colCount} cols
+        </span>
+      )}
+
+      {/* Spacer */}
+      <span className="flex-1" />
+
+      {/* Score chip */}
+      {pct !== null && variant !== null && (
+        <div
+          data-variant={variant}
+          className={`bg-surface border rounded-full px-2.5 py-0.5 text-xs font-semibold ${chipClass}`}
+        >
           Score: {pct}%
         </div>
       )}
+
+      {/* Three-dots overflow indicator */}
+      <span className="inline-flex items-center gap-0.5">
+        <span className="w-[3px] h-[3px] rounded-full bg-fg-muted" />
+        <span className="w-[3px] h-[3px] rounded-full bg-fg-muted" />
+        <span className="w-[3px] h-[3px] rounded-full bg-fg-muted" />
+      </span>
     </div>
   )
 }
