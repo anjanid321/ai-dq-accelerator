@@ -22,7 +22,7 @@ export function TopBar({ filename, rowCount, colCount, currentScore }: Props) {
       : 'border-danger text-danger-deep'
 
   return (
-    <div className="h-14 bg-elevated border-b border-border flex items-center gap-3 px-4 shrink-0">
+    <div className="h-14 bg-surface border-b border-border flex items-center gap-3 px-4 shrink-0">
       {/* Logo */}
       <Logo />
 
@@ -30,7 +30,7 @@ export function TopBar({ filename, rowCount, colCount, currentScore }: Props) {
       <span className="text-sm font-semibold text-fg">DQ Accelerator</span>
 
       {/* Vertical separator */}
-      <span className="w-px h-[18px] bg-border self-center" />
+      <span className="w-px h-[18px] bg-border-strong self-center" />
 
       {/* Sessions link */}
       <Link href="/" className="text-sm text-fg-muted hover:text-fg">

@@ -29,7 +29,7 @@ function StageCircle({ state }: { state: CircleState }) {
   if (state === 'active') {
     return (
       <div className="w-[18px] h-[18px] rounded-full bg-brand-primary shrink-0 flex items-center justify-center">
-        <div className="w-[6px] h-[6px] rounded-full bg-white" />
+        <div className="w-[6px] h-[6px] rounded-full bg-fg-inverse" />
       </div>
     )
   }
@@ -37,7 +37,7 @@ function StageCircle({ state }: { state: CircleState }) {
     return (
       <div className="w-[18px] h-[18px] rounded-full bg-success shrink-0 flex items-center justify-center">
         <svg width="9" height="7" viewBox="0 0 9 7" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <polyline points="1,3.5 3.5,6 8,1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <polyline points="1,3.5 3.5,6 8,1" stroke="var(--color-fg-inverse)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       </div>
     )
