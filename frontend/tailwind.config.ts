@@ -41,6 +41,16 @@ const config: Config = {
         'accent-indigo':      'var(--color-accent-indigo)',
         'accent-indigo-deep': 'var(--color-accent-indigo-deep)',
 
+        // Category (DQ dimension chips)
+        'category-teal':       'var(--color-category-teal)',
+        'category-teal-deep':  'var(--color-category-teal-deep)',
+        'category-rose':       'var(--color-category-rose)',
+        'category-rose-deep':  'var(--color-category-rose-deep)',
+        'category-amber':      'var(--color-category-amber)',
+        'category-amber-deep': 'var(--color-category-amber-deep)',
+        'category-slate':      'var(--color-category-slate)',
+        'category-slate-deep': 'var(--color-category-slate-deep)',
+
         // --- Compatibility aliases for existing class usages ---
         // Stage components reference bg-bg, text-text-primary, bg-indigo/10, etc.
         bg:                  'var(--color-bg-canvas)',

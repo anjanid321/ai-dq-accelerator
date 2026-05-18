@@ -41,6 +41,16 @@
   --color-accent-indigo:      #6366F1;
   --color-accent-indigo-deep: #3730A3;
 
+  /* Category (DQ dimension chips — system-level, not theme-scoped) */
+  --color-category-teal:       #0D9488;
+  --color-category-teal-deep:  #115E59;
+  --color-category-rose:       #DB2777;
+  --color-category-rose-deep:  #9D174D;
+  --color-category-amber:      #92400E;
+  --color-category-amber-deep: #451A03;
+  --color-category-slate:      #475569;
+  --color-category-slate-deep: #334155;
+
   /* Type */
   --font-body:    'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   --font-display: var(--font-body);
