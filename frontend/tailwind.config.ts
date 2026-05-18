@@ -7,7 +7,11 @@ import type { Config } from 'tailwindcss';
 const rgb = (varName: string) => `rgb(var(${varName}) / <alpha-value>)`;
 
 const config: Config = {
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: [
+    './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './lib/**/*.{ts,tsx}',
+  ],
   theme: {
     extend: {
       colors: {
