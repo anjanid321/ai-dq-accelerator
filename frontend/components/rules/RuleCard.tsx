@@ -64,6 +64,34 @@ function decisionButton({
   )
 }
 
+function SelectionCheckbox({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean
+  onChange: () => void
+  ariaLabel: string
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={onChange}
+      className={[
+        'shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors',
+        checked
+          ? 'bg-brand-primary border-brand-primary text-on-brand'
+          : 'bg-surface border-border-strong hover:border-fg-muted',
+      ].join(' ')}
+    >
+      {checked && <Check size={14} strokeWidth={3} />}
+    </button>
+  )
+}
+
 export function RuleCard({
   rule, decision, edit, isEditing, isSelectionMode, isSelected,
   onDecide, onToggleSelect, onEditOpen, onEditClose, onEditChange, onSaveAndApprove,
@@ -80,17 +108,15 @@ export function RuleCard({
         cardChrome({ decision, isEditing }),
       ].join(' ')}
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-center gap-2.5">
         {isSelectionMode && (
-          <input
-            type="checkbox"
-            aria-label={`Select rule ${rule.id}`}
+          <SelectionCheckbox
             checked={isSelected}
             onChange={onToggleSelect}
-            className="mt-1 w-4 h-4 accent-brand-primary"
+            ariaLabel={`Select rule ${rule.id}`}
           />
         )}
-        <DimensionChip dimension={rule.category} className="shrink-0 mt-0.5" />
+        <DimensionChip dimension={rule.category} className="shrink-0" />
         <span className="font-mono text-[13px] text-fg flex-1 break-words">{edit.check ?? rule.check}</span>
         {!isSelectionMode && (
           <div className="flex gap-2 shrink-0">
@@ -118,22 +144,18 @@ export function RuleCard({
         />
       )}
 
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={isEditing ? onEditClose : onEditOpen}
-          data-editing={isEditing}
-          className={[
-            'inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium',
-            isEditing
-              ? 'bg-elevated border-fg-default text-fg-default'
-              : 'bg-surface border-border-strong text-fg-muted',
-          ].join(' ')}
-        >
-          <Pencil size={14} strokeWidth={2} />
-          {isEditing ? 'Editing' : 'Edit'}
-        </button>
-      </div>
+      {!isEditing && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onEditOpen}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium bg-surface border-border-strong text-fg-muted"
+          >
+            <Pencil size={14} strokeWidth={2} />
+            Edit
+          </button>
+        </div>
+      )}
     </div>
   )
 }

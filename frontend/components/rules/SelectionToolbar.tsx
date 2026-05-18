@@ -20,13 +20,21 @@ export function SelectionToolbar({
       data-testid="selection-toolbar"
       className="bg-elevated border border-border rounded-lg px-4 py-2.5 flex items-center gap-3"
     >
-      <input
-        type="checkbox"
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={allVisibleSelected}
         aria-label="Select all visible"
-        checked={allVisibleSelected}
-        onChange={onToggleAllVisible}
-        className="w-4 h-4 accent-brand-primary"
-      />
+        onClick={onToggleAllVisible}
+        className={[
+          'shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors',
+          allVisibleSelected
+            ? 'bg-brand-primary border-brand-primary text-on-brand'
+            : 'bg-surface border-border-strong hover:border-fg-muted',
+        ].join(' ')}
+      >
+        {allVisibleSelected && <Check size={14} strokeWidth={3} />}
+      </button>
       <span className="text-[12px] font-medium text-fg">
         Select all visible · {selectedCount} selected
       </span>

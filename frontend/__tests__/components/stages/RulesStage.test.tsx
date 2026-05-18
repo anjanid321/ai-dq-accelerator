@@ -37,22 +37,24 @@ describe('RulesStage', () => {
     expect(card.getAttribute('data-decision')).toBe('pending')
   })
 
-  it('Select mode hides per-row buttons and shows checkboxes; Done selecting clears selection', () => {
+  it('Select mode hides per-row buttons and shows checkboxes; Cancel exits and clears selection', () => {
     render(<RulesStage session={session} />)
     fireEvent.click(screen.getByTestId('select-toggle'))
-    // Per-card decision buttons (exact label "Approve" / "Deny") should be gone;
-    // the SelectionToolbar bulk buttons say "Approve 0" / "Deny 0" (with count)
+    // Per-card decision buttons (data-decision="success" lives on the RuleCard buttons) should be gone
     expect(document.querySelector('[data-decision="success"]')).toBeNull()
     expect(screen.getAllByLabelText(/Select rule/).length).toBe(4)
     fireEvent.click(screen.getByLabelText('Select rule r1'))
     fireEvent.click(screen.getByLabelText('Select rule r3'))
     expect(screen.getByText(/2 selected/)).toBeInTheDocument()
+    // Click Cancel — exits selection mode entirely
     fireEvent.click(screen.getByTestId('select-toggle'))
+    expect(screen.queryByText(/2 selected/)).toBeNull()
+    // Re-entering selection mode — selection was cleared
     fireEvent.click(screen.getByTestId('select-toggle'))
     expect(screen.getByText(/0 selected/)).toBeInTheDocument()
   })
 
-  it('bulk Approve sets all selected rules to approved', () => {
+  it('bulk Approve sets all selected rules to approved and auto-exits selection mode', () => {
     render(<RulesStage session={session} />)
     fireEvent.click(screen.getByTestId('select-toggle'))
     fireEvent.click(screen.getByLabelText('Select rule r1'))
@@ -61,18 +63,25 @@ describe('RulesStage', () => {
     expect(document.querySelector('[data-rule-id="r1"]')?.getAttribute('data-decision')).toBe('approved')
     expect(document.querySelector('[data-rule-id="r2"]')?.getAttribute('data-decision')).toBe('approved')
     expect(document.querySelector('[data-rule-id="r3"]')?.getAttribute('data-decision')).toBe('pending')
+    // Selection mode auto-exited — bulk action bar is gone
+    expect(screen.queryByText(/selected/)).toBeNull()
+    // Per-row Approve/Deny back
+    expect(document.querySelector('[data-decision="success"]')).not.toBeNull()
   })
 
-  it('bulk Clear reverts decisions of selected rules but keeps the selection', () => {
+  it('bulk Clear reverts decisions of selected rules and auto-exits selection mode', () => {
     render(<RulesStage session={session} />)
+    // Pre-approve everything first
+    fireEvent.click(screen.getByText(/Approve all/))
     fireEvent.click(screen.getByTestId('select-toggle'))
     fireEvent.click(screen.getByLabelText('Select rule r1'))
     fireEvent.click(screen.getByLabelText('Select rule r2'))
-    fireEvent.click(screen.getByText(/Approve 2/).closest('button')!)
     fireEvent.click(screen.getByText(/Clear 2/).closest('button')!)
     expect(document.querySelector('[data-rule-id="r1"]')?.getAttribute('data-decision')).toBe('pending')
     expect(document.querySelector('[data-rule-id="r2"]')?.getAttribute('data-decision')).toBe('pending')
-    expect(screen.getByText(/2 selected/)).toBeInTheDocument()
+    expect(document.querySelector('[data-rule-id="r3"]')?.getAttribute('data-decision')).toBe('approved')
+    // Selection mode auto-exited
+    expect(screen.queryByText(/selected/)).toBeNull()
   })
 
   it('selection persists across filter changes', () => {

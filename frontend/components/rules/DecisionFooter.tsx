@@ -26,9 +26,9 @@ export function DecisionFooter({ approved, denied, undecided, submitting, onSubm
       className="bg-surface border-t border-border px-6 py-3 flex items-center gap-4 shrink-0"
     >
       <div className="flex items-center gap-4">
-        {tallyItem('bg-success', 'text-success-deep', `${approved} approved`)}
-        {tallyItem('bg-danger',  'text-danger-deep',  `${denied} denied`)}
-        {tallyItem('bg-border-strong', 'text-fg-muted', `${undecided} undecided`)}
+        {tallyItem('bg-success', 'text-success-deep', `${approved} Approved`)}
+        {tallyItem('bg-danger',  'text-danger-deep',  `${denied} Denied`)}
+        {tallyItem('bg-border-strong', 'text-fg-muted', `${undecided} Undecided`)}
       </div>
       <div className="flex-1" />
       <button

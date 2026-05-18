@@ -78,17 +78,18 @@ export function RulesStage({ session, readOnly }: Props) {
     })
   }
 
-  function bulkSet(value: Decision) {
+  function exitSelectionMode() {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }
+
+  function bulkApply(value: Decision) {
     setDecisions((prev) => {
       const out = { ...prev }
       for (const id of selectedIds) out[id] = value
       return out
     })
-  }
-
-  function exitSelectionMode() {
-    setSelectionMode(false)
-    setSelectedIds(new Set())
+    exitSelectionMode()
   }
 
   async function handleSubmit() {
@@ -154,7 +155,7 @@ export function RulesStage({ session, readOnly }: Props) {
                 ].join(' ')}
               >
                 <SquareCheckBig size={14} strokeWidth={2} />
-                {selectionMode ? 'Done selecting' : 'Select'}
+                {selectionMode ? 'Cancel' : 'Select'}
               </button>
               {!selectionMode && (
                 <button
@@ -174,9 +175,9 @@ export function RulesStage({ session, readOnly }: Props) {
             selectedCount={selectedIds.size}
             allVisibleSelected={allVisibleSelected}
             onToggleAllVisible={toggleAllVisible}
-            onBulkApprove={() => bulkSet('approved')}
-            onBulkDeny={() => bulkSet('denied')}
-            onBulkClear={() => bulkSet('pending')}
+            onBulkApprove={() => bulkApply('approved')}
+            onBulkDeny={() => bulkApply('denied')}
+            onBulkClear={() => bulkApply('pending')}
           />
         )}
 

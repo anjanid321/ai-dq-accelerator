@@ -74,15 +74,17 @@ describe('RuleCard', () => {
     expect(h.onToggleSelect).toHaveBeenCalledTimes(1)
   })
 
-  it('Edit button label and styling flip when editing', () => {
+  it('Edit button is visible when not editing', () => {
     setup({ isEditing: false })
     expect(screen.getByText('Edit')).toBeInTheDocument()
-    expect(screen.queryByText('Editing')).toBeNull()
   })
 
-  it('Edit button label becomes "Editing" and renders the inline editor when isEditing is true', () => {
+  it('Edit button is hidden and inline editor renders when isEditing is true', () => {
     setup({ isEditing: true })
-    expect(screen.getByText('Editing')).toBeInTheDocument()
+    expect(screen.queryByText('Edit')).toBeNull()
     expect(screen.getByText('Modify Rule')).toBeInTheDocument()
+    // Editor exposes Cancel + Save & Approve in lieu of the Edit toggle
+    expect(screen.getByText('Cancel')).toBeInTheDocument()
+    expect(screen.getByText('Save & Approve')).toBeInTheDocument()
   })
 })
