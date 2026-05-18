@@ -57,16 +57,15 @@ function StageCircle({ state }: { state: CircleState }) {
 export function Stepper({ activeStage, completedStages, viewingStage, onStageClick, activeSubStatus }: Props) {
   return (
     <div
-      className="bg-surface border-r border-border shrink-0 overflow-y-auto py-5"
+      className="bg-surface border-r border-border shrink-0 overflow-y-auto py-3"
       style={{ width: 220 }}
     >
-      {/* Outer container with left padding = 20px so circles start at x=20 */}
-      <div className="relative" style={{ paddingLeft: 20, paddingRight: 16 }}>
+      {/* Outer container — paddingLeft 14 + row p-1.5 = 20px circle x-position */}
+      <div className="relative" style={{ paddingLeft: 14, paddingRight: 14 }}>
         {STAGES.map((s, i) => {
           const done = completedStages.includes(s.id)
           const active = s.id === activeStage
           const viewing = s.id === viewingStage
-          const locked = !done && !active
           const clickable = done && s.id !== activeStage
 
           const circleState: CircleState = done ? 'done' : active ? 'active' : 'locked'
@@ -77,52 +76,41 @@ export function Stepper({ activeStage, completedStages, viewingStage, onStageCli
           const nextActive = nextS ? nextS.id === activeStage : false
           const connectorSuccess = done && (nextDone || nextActive)
 
-          // Label color
           const labelClass = (active || viewing)
             ? 'text-fg font-semibold'
             : 'text-fg-muted'
 
           return (
             <div key={s.id}>
-              {/* Stage row: 48px height to match 48px pitch */}
+              {/* Stage row: 6px padding all sides, rounded so default and hover share chrome */}
               <div
-                className={`relative flex items-center gap-4 ${clickable ? 'cursor-pointer rounded-md hover:bg-elevated px-1.5 -mx-1.5' : ''}`}
-                style={{ height: 48 }}
+                className={`relative flex items-center gap-3 p-1.5 rounded-md ${clickable ? 'cursor-pointer hover:bg-elevated' : ''}`}
                 onClick={() => clickable && onStageClick(s.id)}
               >
-                {/* Circle — positioned inline (flex); its left edge is at paddingLeft=20 */}
                 <StageCircle state={circleState} />
-
-                {/* Label + optional sub-status */}
                 <div className="flex flex-col justify-center min-w-0">
-                  <span
-                    className={`text-[13px] leading-none ${labelClass}`}
-                    style={{ fontFamily: 'Inter, sans-serif' }}
-                  >
+                  <span className={`text-[13px] leading-none ${labelClass}`}>
                     {s.label}
                   </span>
                   {active && activeSubStatus && (
-                    <span
-                      className="text-[12px] text-fg-subtle mt-1 truncate"
-                      style={{ fontFamily: 'Inter, sans-serif' }}
-                    >
+                    <span className="text-[12px] text-fg-muted mt-1.5 truncate">
                       {activeSubStatus}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Connector segment between this stage and the next */}
+              {/* Connector between this row and the next.
+                  Position: container paddingLeft 14 + row p-1.5 (6) + circle half-width 9 − stroke half 0.75 = 28.25px */}
               {i < STAGES.length - 1 && (
                 <div
                   className={`${connectorSuccess ? 'bg-success' : 'bg-border-strong'}`}
                   style={{
-                    /* center horizontally on the circle center: circle left edge = 0 (within padding), circle center = 9px */
                     position: 'relative',
-                    left: 9 - 0.75, /* 9px = circle center offset from padding edge, 0.75 = half of 1.5px width */
+                    left: 14 - 0.75,
                     width: '1.5px',
-                    height: 30,
-                    marginTop: 0,
+                    height: 12,
+                    margin: '2px 0',
                   }}
                 />
               )}

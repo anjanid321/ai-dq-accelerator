@@ -14,7 +14,7 @@ describe('dimensionTokens', () => {
 
   it('falls back to slate for an unknown dimension', () => {
     const t = dimensionTokens('timeliness')
-    expect(t.fillClass).toBe('bg-category-slate/[0.08]')
+    expect(t.fillClass).toBe('bg-category-slate/15')
     expect(t.textClass).toBe('text-category-slate-deep')
     expect(t.label).toBe('Timeliness')
   })
