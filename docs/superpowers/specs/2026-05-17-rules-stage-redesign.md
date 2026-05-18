@@ -182,6 +182,41 @@ The button is enabled when `undecided === 0` and `submitting === false`.
 - Counts use the `-deep` variants for readability on white: approved = `text-success-deep`, denied = `text-danger-deep`, undecided = `text-fg-muted`. Each count is prefixed by the matching colored dot (semantic, not deep) at 8px.
 - The CTA is right-aligned. Loading state changes its label to "Submitting…" and disables the button.
 
+## Icon system
+
+The project adopts **Lucide** (lucide-react) as the canonical icon library across both rounds. Lucide is the icon set shadcn pairs with, MIT-licensed, ~1,400 icons, every glyph drawn on a 24×24 viewBox with 2px stroke. Adopted because:
+
+- Round 1 shipped with a mix of custom polylines and Unicode glyphs that don't visually match each other (the Stepper done-check and the Round 2 Approve `✓` are different shapes).
+- Adopting a single library now means future stages don't reinvent icon shapes per component.
+
+### Round 2 icon mapping (new in this spec)
+
+| Where                          | Lucide icon       | Size  | Stroke width |
+|--------------------------------|-------------------|-------|--------------|
+| Approve button (idle + active) | `Check`           | 14px  | 2            |
+| Deny button (idle + active)    | `X`               | 14px  | 2            |
+| Edit button (idle + editing)   | `Pencil`          | 14px  | 2            |
+| Select toolbar button (idle)   | `SquareCheckBig`  | 14px  | 2            |
+| Done selecting (toolbar active)| `SquareCheckBig`  | 14px  | 2            |
+| Clear N (bulk)                 | `RotateCcw`       | 14px  | 2            |
+| Submit decisions CTA           | `ArrowRight`      | 14px  | 2            |
+| Selection-mode card checkbox   | `Check` (in fill) | 10px  | 2.5          |
+
+### Round 1 retrofit (out-of-spec for this stage, but part of this change)
+
+- **Stepper, done state**: replace custom polyline with `Check` (10px, 2.5 stroke, `text-fg-inverse`). Tightens proportions and matches every other check in the app.
+- **AIPanel, WaitingBanner pause icon**: replace the two hand-drawn rectangles with `Pause` (14px, 2 stroke, `text-fg-muted`).
+- **TopBar, overflow indicator**: replace the three hand-drawn circles with `Ellipsis` (16px, 2 stroke, `text-fg-muted`).
+
+Stroke colors bind to existing tokens via `currentColor`; no new tokens needed.
+
+### Implementation notes for code translation
+
+- Install `lucide-react` (single dependency). Icons are tree-shakeable — each import is just its SVG path.
+- In components, import per-icon: `import { Check, X, Pencil } from 'lucide-react'`.
+- Pass `size`, `strokeWidth`, and `className` (for color via `currentColor` inherited from parent text color).
+- No wrapper component needed — Lucide icons are already lean React components.
+
 ## Component boundaries
 
 To avoid a single 200-line `RulesStage.tsx` doing too much, the redesigned component decomposes into:
