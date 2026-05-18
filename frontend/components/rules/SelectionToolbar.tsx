@@ -3,7 +3,6 @@ import { Check, X, RotateCcw } from 'lucide-react'
 
 interface Props {
   selectedCount: number
-  visibleCount: number
   allVisibleSelected: boolean
   onToggleAllVisible: () => void
   onBulkApprove: () => void
@@ -12,7 +11,7 @@ interface Props {
 }
 
 export function SelectionToolbar({
-  selectedCount, visibleCount, allVisibleSelected,
+  selectedCount, allVisibleSelected,
   onToggleAllVisible, onBulkApprove, onBulkDeny, onBulkClear,
 }: Props) {
   const disabled = selectedCount === 0

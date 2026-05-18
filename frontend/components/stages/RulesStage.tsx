@@ -172,7 +172,6 @@ export function RulesStage({ session, readOnly }: Props) {
         {selectionMode && !readOnly && (
           <SelectionToolbar
             selectedCount={selectedIds.size}
-            visibleCount={visible.length}
             allVisibleSelected={allVisibleSelected}
             onToggleAllVisible={toggleAllVisible}
             onBulkApprove={() => bulkSet('approved')}

@@ -11,7 +11,6 @@ function setup(overrides = {}) {
   render(
     <SelectionToolbar
       selectedCount={2}
-      visibleCount={4}
       allVisibleSelected={false}
       {...handlers}
       {...overrides}
