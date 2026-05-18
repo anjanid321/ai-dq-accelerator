@@ -27,10 +27,10 @@ describe('ThemeProvider', () => {
 
   it('honors initialClient prop', () => {
     render(
-      <ThemeProvider initialClient="tractor-supply">
+      <ThemeProvider initialClient="clayton">
         <span />
       </ThemeProvider>
     );
-    expect(document.documentElement.getAttribute('data-theme')).toBe('tractor-supply');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('clayton');
   });
 });

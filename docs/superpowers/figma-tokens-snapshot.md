@@ -4,15 +4,19 @@ Authoritative variable values from the approved Foundation shells. Pulled via `g
 
 Source file: `https://www.figma.com/design/gsnW43uSpvdLpwandZM8Zx/DQ-Accelerator`
 
+> **2026-05-17 update:** the second brand was swapped from the Tractor Supply demo stub to a real client, Clayton Homes. Hex values below reflect the Clayton swap. UDig remains the default brand.
+
 ## Brand collection — per-mode values
 
-| Token | UDig | Tractor Supply |
+| Token | UDig | Clayton Homes |
 |---|---|---|
-| `color/brand/primary` | `#FF8200` | `#D62828` |
-| `color/brand/accent` | `#002B40` | `#1A1A1A` |
+| `color/brand/primary` | `#FF8200` | `#0071C8` |
+| `color/brand/accent` | `#002B40` | `#022D4D` |
 | `color/brand/on-primary` | `#FFFFFF` | `#FFFFFF` |
 
 These three are the only Brand-collection variables. Everything else is mode-less (System).
+
+Clayton values are pulled from the *Sincerely Clayton* brand guide (Oct 2025) — Clayton Blue (`#0071C8`) is the headline accent in the Cool Tone family, Navy (`#022D4D`) is the dark chrome. White on Clayton Blue clears AA at ~5.1:1; the navy is reserved for primary CTAs (>15:1) per the same accessibility rule we applied to UDig.
 
 ## System collection — single Default mode
 

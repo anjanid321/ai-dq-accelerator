@@ -1,9 +1,9 @@
 import { udig } from './udig';
-import { tractorSupply } from './tractor-supply';
+import { clayton } from './clayton';
 
 export const themes = {
   'udig': udig,
-  'tractor-supply': tractorSupply,
+  'clayton': clayton,
 } as const;
 
 export type RegisteredThemeId = keyof typeof themes;
