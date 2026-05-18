@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Pause } from 'lucide-react'
 import type { AIEvent } from '@/hooks/useAIStream'
 import { EventFeed } from './EventFeed'
 import { EventTerminal } from './EventTerminal'
@@ -54,13 +55,9 @@ export function AIPanel({ events, isStreaming, waitingMessage }: Props) {
 
       {/* ── Waiting banner (footer bar) ── */}
       {waitingMessage && (
-        <div className="w-full bg-elevated border-t border-border py-3.5 px-3 flex items-center justify-center gap-2 shrink-0">
-          {/* Pause icon — two thin vertical bars */}
-          <div className="flex items-center gap-0.5 shrink-0">
-            <div className="w-[2.5px] h-[10px] bg-fg-muted rounded-[1px]" />
-            <div className="w-[2.5px] h-[10px] bg-fg-muted rounded-[1px]" />
-          </div>
-          <span className="text-[12px] font-semibold text-fg-muted">{waitingMessage}</span>
+        <div className="w-full bg-elevated border-t border-border py-3.5 px-3 flex items-center justify-center gap-2 shrink-0 text-fg-muted">
+          <Pause size={14} strokeWidth={2} />
+          <span className="text-[12px] font-semibold">{waitingMessage}</span>
         </div>
       )}
     </div>

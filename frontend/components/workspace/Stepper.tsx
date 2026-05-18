@@ -1,4 +1,5 @@
 'use client'
+import { Check } from 'lucide-react'
 
 export type StageId = 'load' | 'profile' | 'explore' | 'rules' | 'validate' | 'triage' | 'plan' | 'transform' | 'scorecard' | 'pipeline'
 
@@ -35,10 +36,8 @@ function StageCircle({ state }: { state: CircleState }) {
   }
   if (state === 'done') {
     return (
-      <div className="w-[18px] h-[18px] rounded-full bg-success shrink-0 flex items-center justify-center">
-        <svg width="9" height="7" viewBox="0 0 9 7" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <polyline points="1,3.5 3.5,6 8,1" stroke="var(--color-fg-inverse)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        </svg>
+      <div className="w-[18px] h-[18px] rounded-full bg-success shrink-0 flex items-center justify-center text-fg-inverse">
+        <Check size={10} strokeWidth={2.5} />
       </div>
     )
   }

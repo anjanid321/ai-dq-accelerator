@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Ellipsis } from 'lucide-react'
 import { Logo } from '@/components/theme/Logo'
 
 interface Props {
@@ -64,11 +65,7 @@ export function TopBar({ filename, rowCount, colCount, currentScore }: Props) {
       )}
 
       {/* Three-dots overflow indicator */}
-      <span className="inline-flex items-center gap-0.5">
-        <span className="w-[3px] h-[3px] rounded-full bg-fg-muted" />
-        <span className="w-[3px] h-[3px] rounded-full bg-fg-muted" />
-        <span className="w-[3px] h-[3px] rounded-full bg-fg-muted" />
-      </span>
+      <Ellipsis size={16} strokeWidth={2} className="text-fg-muted" />
     </div>
   )
 }
