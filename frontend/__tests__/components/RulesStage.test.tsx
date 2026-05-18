@@ -21,14 +21,14 @@ it('submit button is disabled when rules are undecided', () => {
 
 it('submit button enables after approving all rules', async () => {
   render(<RulesStage session={session} />)
-  fireEvent.click(screen.getByRole('button', { name: /^✓/i }))
+  fireEvent.click(screen.getByRole('button', { name: /^Approve$/i }))
   await waitFor(() => expect(screen.getByRole('button', { name: /submit/i })).not.toBeDisabled())
 })
 
 it('calls approveRules with correct args on submit', async () => {
   mockApprove.mockResolvedValueOnce({ accepted: true, message: '' })
   render(<RulesStage session={session} />)
-  fireEvent.click(screen.getByRole('button', { name: /^✓/i }))
+  fireEvent.click(screen.getByRole('button', { name: /^Approve$/i }))
   fireEvent.click(screen.getByRole('button', { name: /submit/i }))
   await waitFor(() => expect(mockApprove).toHaveBeenCalledWith('s1', [rule], []))
 })
