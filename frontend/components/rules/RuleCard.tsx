@@ -23,7 +23,7 @@ interface Props {
 
 function cardChrome({ decision, isEditing }: { decision: Decision; isEditing: boolean }): string {
   if (decision === 'approved') return 'border-success ring-1 ring-success/40'
-  if (decision === 'denied') return 'border-danger ring-1 ring-danger/40 opacity-70'
+  if (decision === 'denied') return 'border-danger ring-1 ring-danger/40'
   if (isEditing) return 'border-fg-default ring-1 ring-fg-default/20'
   return 'border-border'
 }

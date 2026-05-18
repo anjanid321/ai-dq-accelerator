@@ -1,67 +1,72 @@
 import type { Config } from 'tailwindcss';
 
+// Each color is wrapped in `rgb(var(--x) / <alpha-value>)` so Tailwind's
+// alpha modifier (e.g. bg-success/40, bg-category-teal/[0.08]) works
+// against the CSS variables. The underlying CSS vars are space-separated
+// RGB triplets defined in globals.css.
+const rgb = (varName: string) => `rgb(var(${varName}) / <alpha-value>)`;
+
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
         // Brand (themeable)
-        'brand-primary':     'var(--color-brand-primary)',
-        'brand-accent':      'var(--color-brand-accent)',
-        'on-brand':          'var(--color-brand-on-primary)',
+        'brand-primary':     rgb('--color-brand-primary'),
+        'brand-accent':      rgb('--color-brand-accent'),
+        'on-brand':          rgb('--color-brand-on-primary'),
 
         // Surfaces (system)
-        canvas:    'var(--color-bg-canvas)',
-        surface:   'var(--color-bg-surface)',
-        elevated:  'var(--color-bg-elevated)',
+        canvas:    rgb('--color-bg-canvas'),
+        surface:   rgb('--color-bg-surface'),
+        elevated:  rgb('--color-bg-elevated'),
 
         // Text
-        fg:           'var(--color-fg-default)',
-        'fg-muted':   'var(--color-fg-muted)',
-        'fg-subtle':  'var(--color-fg-subtle)',
-        'fg-inverse': 'var(--color-fg-inverse)',
+        fg:           rgb('--color-fg-default'),
+        'fg-muted':   rgb('--color-fg-muted'),
+        'fg-subtle':  rgb('--color-fg-subtle'),
+        'fg-inverse': rgb('--color-fg-inverse'),
 
         // Borders
-        border:          'var(--color-border-subtle)',
-        'border-strong': 'var(--color-border-strong)',
+        border:          rgb('--color-border-subtle'),
+        'border-strong': rgb('--color-border-strong'),
 
         // Semantic
-        success:      'var(--color-semantic-success)',
-        warning:      'var(--color-semantic-warning)',
-        danger:       'var(--color-semantic-danger)',
-        info:         'var(--color-semantic-info)',
-        'success-deep': 'var(--color-semantic-success-deep)',
-        'warning-deep': 'var(--color-semantic-warning-deep)',
-        'danger-deep':  'var(--color-semantic-danger-deep)',
-        'info-deep':    'var(--color-semantic-info-deep)',
+        success:      rgb('--color-semantic-success'),
+        warning:      rgb('--color-semantic-warning'),
+        danger:       rgb('--color-semantic-danger'),
+        info:         rgb('--color-semantic-info'),
+        'success-deep': rgb('--color-semantic-success-deep'),
+        'warning-deep': rgb('--color-semantic-warning-deep'),
+        'danger-deep':  rgb('--color-semantic-danger-deep'),
+        'info-deep':    rgb('--color-semantic-info-deep'),
 
         // Accent (AI events)
-        'accent-purple':      'var(--color-accent-purple)',
-        'accent-purple-deep': 'var(--color-accent-purple-deep)',
-        'accent-indigo':      'var(--color-accent-indigo)',
-        'accent-indigo-deep': 'var(--color-accent-indigo-deep)',
+        'accent-purple':      rgb('--color-accent-purple'),
+        'accent-purple-deep': rgb('--color-accent-purple-deep'),
+        'accent-indigo':      rgb('--color-accent-indigo'),
+        'accent-indigo-deep': rgb('--color-accent-indigo-deep'),
 
         // Category (DQ dimension chips)
-        'category-teal':       'var(--color-category-teal)',
-        'category-teal-deep':  'var(--color-category-teal-deep)',
-        'category-rose':       'var(--color-category-rose)',
-        'category-rose-deep':  'var(--color-category-rose-deep)',
-        'category-amber':      'var(--color-category-amber)',
-        'category-amber-deep': 'var(--color-category-amber-deep)',
-        'category-slate':      'var(--color-category-slate)',
-        'category-slate-deep': 'var(--color-category-slate-deep)',
+        'category-teal':       rgb('--color-category-teal'),
+        'category-teal-deep':  rgb('--color-category-teal-deep'),
+        'category-rose':       rgb('--color-category-rose'),
+        'category-rose-deep':  rgb('--color-category-rose-deep'),
+        'category-amber':      rgb('--color-category-amber'),
+        'category-amber-deep': rgb('--color-category-amber-deep'),
+        'category-slate':      rgb('--color-category-slate'),
+        'category-slate-deep': rgb('--color-category-slate-deep'),
 
         // --- Compatibility aliases for existing class usages ---
-        // Stage components reference bg-bg, text-text-primary, bg-indigo/10, etc.
-        bg:                  'var(--color-bg-canvas)',
-        'surface-raised':    'var(--color-bg-canvas)',
-        'text-primary':      'var(--color-fg-default)',
-        'text-secondary':    'var(--color-fg-muted)',
-        'text-muted':        'var(--color-fg-subtle)',
-        indigo: { DEFAULT: 'var(--color-accent-indigo)', light: 'var(--color-accent-indigo)' },
-        'success-light': 'var(--color-semantic-success)',
-        'warning-light': 'var(--color-semantic-warning)',
-        'danger-light':  'var(--color-semantic-danger)',
+        bg:                  rgb('--color-bg-canvas'),
+        'surface-raised':    rgb('--color-bg-canvas'),
+        'text-primary':      rgb('--color-fg-default'),
+        'text-secondary':    rgb('--color-fg-muted'),
+        'text-muted':        rgb('--color-fg-subtle'),
+        indigo: { DEFAULT: rgb('--color-accent-indigo'), light: rgb('--color-accent-indigo') },
+        'success-light': rgb('--color-semantic-success'),
+        'warning-light': rgb('--color-semantic-warning'),
+        'danger-light':  rgb('--color-semantic-danger'),
       },
       fontFamily: {
         sans:    ['var(--font-body)', 'sans-serif'],

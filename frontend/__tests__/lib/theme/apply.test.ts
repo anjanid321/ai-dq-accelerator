@@ -15,12 +15,12 @@ describe('writeTokensToRoot', () => {
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('sets brand color CSS variables on documentElement', () => {
+  it('writes brand colors as RGB triplets (Tailwind alpha-channel compatible)', () => {
     writeTokensToRoot(sample);
     const style = document.documentElement.style;
-    expect(style.getPropertyValue('--color-brand-primary')).toBe('#112233');
-    expect(style.getPropertyValue('--color-brand-accent')).toBe('#445566');
-    expect(style.getPropertyValue('--color-brand-on-primary')).toBe('#FFFFFF');
+    expect(style.getPropertyValue('--color-brand-primary')).toBe('17 34 51');         // #112233
+    expect(style.getPropertyValue('--color-brand-accent')).toBe('68 85 102');         // #445566
+    expect(style.getPropertyValue('--color-brand-on-primary')).toBe('255 255 255');   // #FFFFFF
   });
 
   it('sets the data-theme attribute', () => {
@@ -28,9 +28,9 @@ describe('writeTokensToRoot', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('sample');
   });
 
-  it('applies semantic overrides when present', () => {
+  it('applies semantic overrides as RGB triplets', () => {
     writeTokensToRoot(sample);
-    expect(document.documentElement.style.getPropertyValue('--color-semantic-danger')).toBe('#FF0000');
+    expect(document.documentElement.style.getPropertyValue('--color-semantic-danger')).toBe('255 0 0'); // #FF0000
   });
 
   it('leaves semantic vars unset when theme does not override them', () => {

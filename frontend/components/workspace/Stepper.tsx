@@ -86,7 +86,7 @@ export function Stepper({ activeStage, completedStages, viewingStage, onStageCli
             <div key={s.id}>
               {/* Stage row: 48px height to match 48px pitch */}
               <div
-                className={`relative flex items-center gap-4 ${clickable ? 'cursor-pointer rounded-lg hover:bg-elevated' : ''}`}
+                className={`relative flex items-center gap-4 ${clickable ? 'cursor-pointer rounded-md hover:bg-elevated px-1.5 -mx-1.5' : ''}`}
                 style={{ height: 48 }}
                 onClick={() => clickable && onStageClick(s.id)}
               >
