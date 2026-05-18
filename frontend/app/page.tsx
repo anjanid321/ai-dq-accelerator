@@ -41,7 +41,7 @@ export default function HomePage() {
         <div className="flex-1 bg-canvas p-6 flex flex-col gap-5">
           {grouped.inProgress.length > 0 && (
             <section className="flex flex-col gap-3">
-              <div className="text-[10px] uppercase tracking-widest text-fg-muted">In progress</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">In progress</div>
               <div
                 className="grid gap-4"
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
@@ -60,7 +60,7 @@ export default function HomePage() {
 
           {grouped.complete.length > 0 && (
             <section className="flex flex-col gap-3">
-              <div className="text-[10px] uppercase tracking-widest text-fg-muted">Complete</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">Complete</div>
               <div
                 className="grid gap-4"
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}

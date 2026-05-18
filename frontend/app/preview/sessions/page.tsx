@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { SessionCard } from '@/components/sessions/SessionCard'
 import { SessionsTopBar } from '@/components/sessions/SessionsTopBar'
@@ -94,6 +94,14 @@ const MOCK_SESSIONS: SessionListEntry[] = [
 ]
 
 export default function PreviewSessionsPage() {
+  return (
+    <Suspense fallback={null}>
+      <PreviewSessionsInner />
+    </Suspense>
+  )
+}
+
+function PreviewSessionsInner() {
   const params = useSearchParams()
   const empty = params.get('empty') === '1'
   const sessions = empty ? [] : MOCK_SESSIONS
@@ -124,7 +132,7 @@ export default function PreviewSessionsPage() {
         <div className="flex-1 bg-canvas p-6 flex flex-col gap-5">
           {grouped.inProgress.length > 0 && (
             <section className="flex flex-col gap-3">
-              <div className="text-[10px] uppercase tracking-widest text-fg-muted">In progress</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">In progress</div>
               <div
                 className="grid gap-4"
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
@@ -138,7 +146,7 @@ export default function PreviewSessionsPage() {
 
           {grouped.complete.length > 0 && (
             <section className="flex flex-col gap-3">
-              <div className="text-[10px] uppercase tracking-widest text-fg-muted">Complete</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">Complete</div>
               <div
                 className="grid gap-4"
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}

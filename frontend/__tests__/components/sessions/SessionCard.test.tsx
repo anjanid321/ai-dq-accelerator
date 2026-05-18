@@ -97,9 +97,17 @@ describe('SessionCard', () => {
     expect(onOpen).toHaveBeenCalledTimes(1)
   })
 
-  it('clicking delete twice deletes the session', async () => {
+  it('delete menu item is hidden until the edit kebab is clicked', () => {
+    render(<SessionCard entry={makeEntry()} onOpen={() => {}} onDeleted={() => {}} />)
+    expect(screen.queryByTestId('session-delete')).toBeNull()
+    fireEvent.click(screen.getByTestId('session-edit'))
+    expect(screen.getByTestId('session-delete')).toBeInTheDocument()
+  })
+
+  it('clicking delete twice (after opening the menu) deletes the session', async () => {
     const onDeleted = jest.fn()
     render(<SessionCard entry={makeEntry()} onOpen={() => {}} onDeleted={onDeleted} />)
+    fireEvent.click(screen.getByTestId('session-edit'))
     const btn = screen.getByTestId('session-delete')
     fireEvent.click(btn)
     expect(btn).toHaveTextContent(/confirm/i)

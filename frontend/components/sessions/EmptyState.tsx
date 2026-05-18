@@ -22,7 +22,7 @@ export function EmptyState({ onUpload }: Props) {
           type="button"
           onClick={onUpload}
           data-testid="empty-state-upload"
-          className="inline-flex items-center gap-1.5 bg-brand-accent text-on-brand text-[13px] font-semibold px-4 py-2 rounded-md hover:brightness-110"
+          className="inline-flex items-center gap-1.5 bg-brand-accent text-on-brand text-[13px] font-semibold px-4 py-2 rounded-md hover:bg-brand-accent/90 hover:shadow-md transition-all"
         >
           <Upload size={14} strokeWidth={2} />
           Upload a dataset
