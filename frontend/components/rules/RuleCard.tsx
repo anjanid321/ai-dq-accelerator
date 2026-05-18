@@ -1,0 +1,139 @@
+'use client'
+import { Check, X, Pencil } from 'lucide-react'
+import type { Rule } from '@/lib/types'
+import { DimensionChip } from '@/components/dq/DimensionChip'
+import { RuleInlineEditor } from './RuleInlineEditor'
+
+export type Decision = 'approved' | 'denied' | 'pending'
+
+interface Props {
+  rule: Rule
+  decision: Decision
+  edit: Partial<Rule>
+  isEditing: boolean
+  isSelectionMode: boolean
+  isSelected: boolean
+  onDecide: (next: Decision) => void
+  onToggleSelect: () => void
+  onEditOpen: () => void
+  onEditClose: () => void
+  onEditChange: (patch: Partial<Rule>) => void
+  onSaveAndApprove: () => void
+}
+
+function cardChrome({ decision, isEditing }: { decision: Decision; isEditing: boolean }): string {
+  if (decision === 'approved') return 'border-success ring-1 ring-success/40'
+  if (decision === 'denied') return 'border-danger ring-1 ring-danger/40 opacity-70'
+  if (isEditing) return 'border-fg-default ring-1 ring-fg-default/20'
+  return 'border-border'
+}
+
+function decisionButton({
+  active,
+  variant,
+  label,
+  Icon,
+  onClick,
+}: {
+  active: boolean
+  variant: 'success' | 'danger'
+  label: string
+  Icon: typeof Check
+  onClick: () => void
+}) {
+  const baseIdle = variant === 'success'
+    ? 'bg-surface border-success text-success-deep'
+    : 'bg-surface border-danger text-danger-deep'
+  const baseActive = variant === 'success'
+    ? 'bg-success-deep border-success-deep text-on-brand'
+    : 'bg-danger-deep border-danger-deep text-on-brand'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-decision={variant}
+      data-active={active}
+      className={[
+        'inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium',
+        active ? baseActive : baseIdle,
+      ].join(' ')}
+    >
+      <Icon size={14} strokeWidth={2} />
+      {label}
+    </button>
+  )
+}
+
+export function RuleCard({
+  rule, decision, edit, isEditing, isSelectionMode, isSelected,
+  onDecide, onToggleSelect, onEditOpen, onEditClose, onEditChange, onSaveAndApprove,
+}: Props) {
+  const onApprove = () => onDecide(decision === 'approved' ? 'pending' : 'approved')
+  const onDeny    = () => onDecide(decision === 'denied'   ? 'pending' : 'denied')
+
+  return (
+    <div
+      data-rule-id={rule.id}
+      data-decision={decision}
+      className={[
+        'bg-surface rounded-lg border p-4 flex flex-col gap-2',
+        cardChrome({ decision, isEditing }),
+      ].join(' ')}
+    >
+      <div className="flex items-start gap-2.5">
+        {isSelectionMode && (
+          <input
+            type="checkbox"
+            aria-label={`Select rule ${rule.id}`}
+            checked={isSelected}
+            onChange={onToggleSelect}
+            className="mt-1 w-4 h-4 accent-brand-primary"
+          />
+        )}
+        <DimensionChip dimension={rule.category} className="shrink-0 mt-0.5" />
+        <span className="font-mono text-[13px] text-fg flex-1 break-words">{edit.check ?? rule.check}</span>
+        {!isSelectionMode && (
+          <div className="flex gap-2 shrink-0">
+            {decisionButton({ active: decision === 'approved', variant: 'success', label: decision === 'approved' ? 'Approved' : 'Approve', Icon: Check, onClick: onApprove })}
+            {decisionButton({ active: decision === 'denied',   variant: 'danger',  label: decision === 'denied'   ? 'Denied'   : 'Deny',    Icon: X,     onClick: onDeny })}
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-3 text-[11px] text-fg-muted">
+        {rule.column && <span>column: {rule.column}</span>}
+        <span>check: {rule.check}</span>
+      </div>
+      {rule.rationale && (
+        <p className="text-[11px] italic text-fg-muted leading-relaxed">{rule.rationale}</p>
+      )}
+
+      {isEditing && (
+        <RuleInlineEditor
+          rule={rule}
+          edit={edit}
+          onChange={onEditChange}
+          onCancel={onEditClose}
+          onSaveAndApprove={onSaveAndApprove}
+        />
+      )}
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={isEditing ? onEditClose : onEditOpen}
+          data-editing={isEditing}
+          className={[
+            'inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium',
+            isEditing
+              ? 'bg-elevated border-fg-default text-fg-default'
+              : 'bg-surface border-border-strong text-fg-muted',
+          ].join(' ')}
+        >
+          <Pencil size={14} strokeWidth={2} />
+          {isEditing ? 'Editing' : 'Edit'}
+        </button>
+      </div>
+    </div>
+  )
+}
