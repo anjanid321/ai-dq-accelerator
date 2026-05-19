@@ -1,6 +1,13 @@
+// frontend/components/stages/ExplorationStage.tsx
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getExplorationState, getNotebookHtmlUrl, getNotebookDownloadUrl, submitExplorationFeedback } from '@/lib/api'
+import { ArrowRight, Download, RefreshCw } from 'lucide-react'
+import {
+  getExplorationState,
+  getNotebookHtmlUrl,
+  getNotebookDownloadUrl,
+  submitExplorationFeedback,
+} from '@/lib/api'
 
 interface Props {
   sessionId: string
@@ -30,12 +37,13 @@ export function ExplorationStage({ sessionId, stage, readOnly }: Props) {
     try {
       const s = await getExplorationState(sessionId)
       setState(s)
-    } catch (e) {
+    } catch {
       // silently retry — notebook may not be ready yet
     }
   }, [sessionId])
 
-  // poll until notebook_ready, then stop
+  // poll until notebook_ready, then stop. Pre-existing stale-closure quirk
+  // preserved verbatim per spec; fixing it is out of scope for Stage 5.
   useEffect(() => {
     load()
     if (state?.notebook_ready) return
@@ -74,12 +82,17 @@ export function ExplorationStage({ sessionId, stage, readOnly }: Props) {
 
   const maxRoundsReached = (state?.investigation_round ?? 0) >= 2
   const canRequestReinvestigation = !maxRoundsReached && feedback.trim().length > 0
+  const notebookReady = !!state?.notebook_ready
 
   if (submitted) {
     return (
       <div className="p-5 flex flex-col items-center justify-center h-full gap-3">
-        <div className="w-10 h-10 border-2 border-indigo border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-text-muted">
+        <div
+          role="status"
+          aria-label="Submitting"
+          className="w-10 h-10 border-2 border-brand-primary border-t-transparent rounded-full animate-spin"
+        />
+        <p className="text-sm text-fg-muted">
           {isReinvestigating ? 'Re-investigating…' : 'Moving to rule proposal…'}
         </p>
       </div>
@@ -87,132 +100,148 @@ export function ExplorationStage({ sessionId, stage, readOnly }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header bar */}
-      <div className="shrink-0 px-5 pt-5 pb-3 border-b border-border">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-base font-bold text-text-primary">Exploration Review</h1>
+    <div className="p-5 flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-3">
+          <h1 className="text-base font-bold text-fg">Exploration Review</h1>
+          <span className="flex-1" />
           {state && (
-            <span className="text-[10px] text-text-muted px-2 py-0.5 rounded bg-surface border border-border">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-elevated border border-border text-[11px] font-semibold text-fg-muted">
               Round {state.investigation_round + 1} of 3
             </span>
           )}
         </div>
-        <p className="text-xs text-text-muted">
+        <p className="text-xs text-fg-muted">
           Review the AI's investigation findings before rules are proposed.
           {maxRoundsReached && ' Maximum re-investigation rounds reached — approve to continue.'}
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Open questions — pinned at top */}
-        {state && state.open_questions.length > 0 && (
-          <div className="mx-5 mt-4 bg-warning/10 border border-warning/30 rounded-xl p-4">
-            <div className="text-[10px] uppercase tracking-widest text-warning mb-2">Open Questions — Requires Your Input</div>
-            <ol className="list-decimal list-inside space-y-1">
-              {state.open_questions.map((q, i) => (
-                <li key={i} className="text-xs text-warning-light leading-relaxed">{q}</li>
+      {/* Open Questions card */}
+      {state && state.open_questions.length > 0 && (
+        <div className="bg-warning/15 border border-warning/30 rounded-xl p-4 flex flex-col gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wider text-warning-deep">
+            Open Questions — Requires Your Input
+          </div>
+          <ol className="list-decimal list-inside flex flex-col gap-1">
+            {state.open_questions.map((q, i) => (
+              <li key={i} className="text-xs text-warning-deep leading-relaxed">
+                {q}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* Constraint warning */}
+      {state?.synthesis_constrained && (
+        <div className="bg-danger/15 border border-danger/30 rounded-xl p-3 flex flex-col gap-1">
+          <div className="text-xs font-semibold uppercase tracking-wider text-danger-deep">
+            Constrained Synthesis
+          </div>
+          <p className="text-xs text-danger-deep">
+            Rules were proposed despite unresolved uncertainty. The AI summary includes a warning.
+          </p>
+          {state.synthesis_constraint_reasons.length > 0 && (
+            <ul className="list-disc list-inside flex flex-col gap-0.5">
+              {state.synthesis_constraint_reasons.map((r, i) => (
+                <li key={i} className="text-xs text-danger-deep">
+                  {r}
+                </li>
               ))}
-            </ol>
-          </div>
-        )}
+            </ul>
+          )}
+        </div>
+      )}
 
-        {/* Synthesis constraint warning */}
-        {state?.synthesis_constrained && (
-          <div className="mx-5 mt-3 bg-danger/10 border border-danger/30 rounded-xl p-3">
-            <div className="text-[10px] uppercase tracking-widest text-danger-light mb-1">Constrained Synthesis</div>
-            <p className="text-xs text-danger-light/80">
-              Rules were proposed despite unresolved uncertainty. The AI summary includes a warning.
-            </p>
-            {state.synthesis_constraint_reasons.length > 0 && (
-              <ul className="mt-1 list-disc list-inside">
-                {state.synthesis_constraint_reasons.map((r, i) => (
-                  <li key={i} className="text-xs text-danger-light/70">{r}</li>
-                ))}
-              </ul>
-            )}
+      {/* Notebook — loading or ready */}
+      {!notebookReady ? (
+        <div className="bg-surface border border-border rounded-xl p-6 flex items-center gap-3">
+          <div
+            role="status"
+            aria-label="Loading"
+            className="w-4 h-4 border-2 border-brand-primary border-t-transparent rounded-full animate-spin shrink-0"
+          />
+          <span className="text-xs text-fg-muted">
+            {isReinvestigating
+              ? 'Agent is re-investigating your data…'
+              : 'Generating exploration notebook…'}
+          </span>
+        </div>
+      ) : (
+        <div className="border border-border rounded-xl overflow-hidden h-[520px] flex flex-col">
+          <div className="flex items-center bg-elevated px-3 py-2 border-b border-border">
+            <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+              Exploration Notebook
+            </span>
+            <span className="flex-1" />
+            <a
+              href={getNotebookDownloadUrl(sessionId)}
+              download
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-fg-muted hover:text-fg transition-colors"
+            >
+              <Download size={12} strokeWidth={2} />
+              Download .ipynb
+            </a>
           </div>
-        )}
+          <iframe
+            src={getNotebookHtmlUrl(sessionId)}
+            className="flex-1 bg-white"
+            style={{ border: 'none' }}
+            title="Exploration Notebook"
+          />
+        </div>
+      )}
 
-        {/* Notebook iframe or loading state */}
-        <div className="mx-5 mt-4">
-          {isReinvestigating && !state?.notebook_ready ? (
-            <div className="bg-surface border border-border rounded-xl p-6 flex items-center gap-3">
-              <div className="w-4 h-4 border-2 border-indigo border-t-transparent rounded-full animate-spin shrink-0" />
-              <span className="text-xs text-text-muted">Agent is re-investigating your data…</span>
-            </div>
-          ) : !state?.notebook_ready ? (
-            <div className="bg-surface border border-border rounded-xl p-6 flex items-center gap-3">
-              <div className="w-4 h-4 border-2 border-indigo border-t-transparent rounded-full animate-spin shrink-0" />
-              <span className="text-xs text-text-muted">Generating exploration notebook…</span>
-            </div>
-          ) : (
-            <div className="border border-border rounded-xl overflow-hidden" style={{ height: '520px' }}>
-              <div className="flex items-center justify-between bg-elevated px-3 py-2 border-b border-border">
-                <span className="text-[10px] uppercase tracking-widest text-text-muted">Exploration Notebook</span>
-                <a
-                  href={getNotebookDownloadUrl(sessionId)}
-                  className="text-[10px] text-indigo-light hover:underline"
-                  download
-                >
-                  Download .ipynb ↓
-                </a>
-              </div>
-              <iframe
-                src={getNotebookHtmlUrl(sessionId)}
-                className="w-full bg-white"
-                style={{ height: 'calc(100% - 33px)', border: 'none' }}
-                title="Exploration Notebook"
+      {/* Feedback + actions */}
+      {notebookReady && !readOnly && (
+        <>
+          {!maxRoundsReached && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                Request targeted re-investigation (optional)
+              </label>
+              <textarea
+                className="w-full bg-surface border border-border rounded-lg p-2.5 text-xs text-fg resize-none focus:outline-none focus:border-brand-primary placeholder:text-fg-subtle"
+                rows={3}
+                placeholder={`e.g. "Dig deeper into the relationship between Status and Amount — the cross-column finding seems important"`}
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
               />
             </div>
           )}
-        </div>
 
-        {/* Feedback + action area */}
-        {state?.notebook_ready && !readOnly && (
-          <div className="mx-5 mt-4 mb-5">
-            {!maxRoundsReached && (
-              <div className="mb-3">
-                <label className="text-[10px] uppercase tracking-widest text-text-muted block mb-1.5">
-                  Request targeted re-investigation (optional)
-                </label>
-                <textarea
-                  className="w-full bg-surface border border-border rounded-lg p-2.5 text-xs text-text-primary resize-none focus:outline-none focus:border-indigo/50 placeholder:text-text-muted"
-                  rows={3}
-                  placeholder={`e.g. "Dig deeper into the relationship between Status and Amount — the cross-column finding seems important"`}
-                  value={feedback}
-                  onChange={e => setFeedback(e.target.value)}
-                />
-              </div>
-            )}
-
-            {error && (
-              <div className="mb-3 text-xs text-danger-light bg-danger/10 border border-danger/30 rounded-lg px-3 py-2">
-                {error}
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-end">
-              {!maxRoundsReached && (
-                <button
-                  className={`text-sm px-4 py-2 rounded-lg border transition-colors ${canRequestReinvestigation ? 'border-warning/40 text-warning-light bg-warning/10 hover:bg-warning/20' : 'border-border text-text-muted opacity-50 cursor-not-allowed'}`}
-                  onClick={handleRequestReinvestigation}
-                  disabled={!canRequestReinvestigation || submitting}
-                >
-                  {submitting ? 'Sending…' : 'Re-investigate →'}
-                </button>
-              )}
-              <button
-                className="text-sm px-5 py-2 rounded-lg bg-indigo text-white font-medium hover:bg-indigo/90 disabled:opacity-50"
-                onClick={handleApprove}
-                disabled={submitting}
-              >
-                {submitting ? 'Approving…' : 'Approve & Continue →'}
-              </button>
+          {error && (
+            <div className="bg-danger/15 border border-danger/30 rounded-lg px-3 py-2 text-xs text-danger-deep">
+              {error}
             </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            {!maxRoundsReached && (
+              <button
+                type="button"
+                onClick={handleRequestReinvestigation}
+                disabled={!canRequestReinvestigation || submitting}
+                className="inline-flex items-center gap-1.5 bg-surface border border-border text-fg-muted text-[13px] font-semibold px-4 py-2 rounded-md hover:bg-elevated hover:border-fg-muted hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <RefreshCw size={14} strokeWidth={2} />
+                {submitting ? 'Sending…' : 'Re-investigate'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleApprove}
+              disabled={submitting}
+              className="inline-flex items-center gap-1.5 bg-brand-accent text-on-brand text-[13px] font-semibold px-4 py-2 rounded-md hover:bg-brand-accent/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {submitting ? 'Approving…' : 'Approve & Continue'}
+              <ArrowRight size={14} strokeWidth={2} />
+            </button>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }
