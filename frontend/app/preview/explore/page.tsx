@@ -227,7 +227,7 @@ function PreviewExploration({ scenario }: { scenario: Scenario }) {
             <a
               href="#"
               onClick={(e) => e.preventDefault()}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-fg-muted hover:text-fg transition-colors"
+              className="inline-flex items-center gap-1.5 bg-surface border border-border text-fg-muted text-[11px] font-semibold px-2.5 py-1 rounded-md hover:bg-canvas hover:border-fg-muted hover:text-fg transition-all"
             >
               <Download size={12} strokeWidth={2} />
               Download .ipynb
