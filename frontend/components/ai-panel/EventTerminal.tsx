@@ -1,7 +1,9 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef } from 'react'
 import type { AIEvent } from '@/hooks/useAIStream'
+import { useStickToBottom } from '@/hooks/useStickToBottom'
+import { ScrollToLatestPill } from './ScrollToLatestPill'
 
 // Token-driven, tinted-at-15-alpha so glyphs read clearly on the white surface.
 const GLYPH: Record<string, string> = { tool_call: '▶', tool_result: '✓', thinking: '~', done: '■' }
@@ -27,14 +29,15 @@ function eventBody(ev: AIEvent): string {
 }
 
 export function EventTerminal({ events }: { events: AIEvent[] }) {
-  const bottomRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView()
-  }, [events])
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const { pinned, unreadCount, scrollToBottom } = useStickToBottom(scrollerRef, events.length)
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 font-mono text-[11px] leading-relaxed text-fg">
+    <div
+      ref={scrollerRef}
+      data-testid="event-terminal-scroller"
+      className="relative flex-1 overflow-y-auto overflow-x-hidden p-3 font-mono text-[11px] leading-relaxed text-fg"
+    >
       {events.map((ev, i) => {
         const glyphCls = GLYPH_COLOR[ev.event] ?? 'text-fg-muted'
         const glyph = GLYPH[ev.event] ?? '?'
@@ -54,7 +57,7 @@ export function EventTerminal({ events }: { events: AIEvent[] }) {
         )
       })}
       <span className="text-fg">█</span>
-      <div ref={bottomRef} />
+      {!pinned && <ScrollToLatestPill unreadCount={unreadCount} onClick={scrollToBottom} />}
     </div>
   )
 }
