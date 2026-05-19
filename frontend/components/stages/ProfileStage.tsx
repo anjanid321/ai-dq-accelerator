@@ -37,7 +37,7 @@ export function ProfileStage({ session, onContinue, readOnly }: Props) {
 
       {/* AI Summary card — populated or loading */}
       {session.ai_summary ? (
-        <div className="bg-accent-purple/15 border border-accent-purple/30 rounded-xl p-4 flex flex-col gap-1.5">
+        <div className="bg-accent-purple/15 border border-accent-purple/30 rounded-xl pt-3.5 px-4 pb-4 flex flex-col gap-1.5">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-accent-purple-deep">
             ✦ AI SUMMARY
           </div>
@@ -46,7 +46,7 @@ export function ProfileStage({ session, onContinue, readOnly }: Props) {
           </p>
         </div>
       ) : (
-        <div className="bg-surface border border-border rounded-xl p-4 flex items-center gap-3">
+        <div className="bg-surface border border-border rounded-xl pt-3.5 px-4 pb-4 flex items-center gap-3">
           <div
             role="status"
             aria-label="Analyzing"
@@ -59,7 +59,7 @@ export function ProfileStage({ session, onContinue, readOnly }: Props) {
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3">
         {/* Completeness */}
-        <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-1.5">
+        <div className="bg-surface border border-border rounded-xl pt-3.5 px-4 pb-4 flex flex-col gap-1.5">
           <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
             Completeness
           </div>
@@ -85,7 +85,7 @@ export function ProfileStage({ session, onContinue, readOnly }: Props) {
         </div>
 
         {/* Rows */}
-        <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-1.5">
+        <div className="bg-surface border border-border rounded-xl pt-3.5 px-4 pb-4 flex flex-col gap-1.5">
           <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
             Rows
           </div>
@@ -95,7 +95,7 @@ export function ProfileStage({ session, onContinue, readOnly }: Props) {
         </div>
 
         {/* Columns */}
-        <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-1.5">
+        <div className="bg-surface border border-border rounded-xl pt-3.5 px-4 pb-4 flex flex-col gap-1.5">
           <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
             Columns
           </div>
@@ -105,7 +105,7 @@ export function ProfileStage({ session, onContinue, readOnly }: Props) {
         </div>
 
         {/* Alerts */}
-        <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-1.5">
+        <div className="bg-surface border border-border rounded-xl pt-3.5 px-4 pb-4 flex flex-col gap-1.5">
           <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
             Alerts
           </div>
@@ -121,11 +121,11 @@ export function ProfileStage({ session, onContinue, readOnly }: Props) {
 
       {/* Alerts list */}
       {alerts.length > 0 && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
             Alerts ({alerts.length})
           </div>
-          <ul className="flex flex-col gap-4 m-0 p-0">
+          <ul className="flex flex-col gap-2 m-0 p-0">
             {alerts.map((alert, i) => (
               <AlertRow key={i} alert={alert} />
             ))}

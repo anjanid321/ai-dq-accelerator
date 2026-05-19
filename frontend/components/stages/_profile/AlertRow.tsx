@@ -15,7 +15,7 @@ interface Props {
 export function AlertRow({ alert }: Props) {
   const { column, type, description } = alert
   return (
-    <li className="bg-surface border border-border rounded-lg p-3 flex flex-col gap-1.5 list-none">
+    <li className="bg-surface border border-border rounded-lg py-3.5 px-4 flex flex-col gap-1.5 list-none">
       <div className="flex items-center gap-2.5">
         <span className="text-[13px] font-semibold text-fg">{column || 'Table-level'}</span>
         {type && (
