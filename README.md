@@ -2,6 +2,8 @@
 
 A guided, agentic data quality workflow that takes a raw dataset through profiling, rule validation, anomaly triage, iterative transformation, and production pipeline generation — with human approval at every decision point.
 
+**Try it:** upload [`samples/loan_applications.csv`](samples/loan_applications.csv) to walk the full pipeline against engineered data-quality issues (200 rows, all three Profile alert buckets, 8–10 proposed rules with failing samples).
+
 ---
 
 ## Getting Started (First-Time Setup)
