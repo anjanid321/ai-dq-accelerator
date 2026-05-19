@@ -184,4 +184,60 @@ describe('ExplorationStage', () => {
     expect(banner.className).toContain('text-danger-deep')
     expect(banner.className).toContain('bg-danger/15')
   })
+
+  describe('demo mode (mockState provided)', () => {
+    it('does NOT call getExplorationState when mockState is provided', async () => {
+      render(
+        <ExplorationStage
+          sessionId="demo"
+          stage="AWAITING_INVESTIGATION_REVIEW"
+          mockState={makeState({ open_questions: ['Why is state_code constant?'] })}
+        />,
+      )
+      expect(await screen.findByText('Exploration Notebook')).toBeInTheDocument()
+      expect(screen.getByText(/Why is state_code constant/)).toBeInTheDocument()
+      expect(mockedGetState).not.toHaveBeenCalled()
+    })
+
+    it('renders the loading state when mockState has notebook_ready=false', async () => {
+      render(
+        <ExplorationStage
+          sessionId="demo"
+          stage="AWAITING_INVESTIGATION_REVIEW"
+          mockState={makeState({ notebook_ready: false })}
+        />,
+      )
+      const spinner = await screen.findByRole('status', { name: /loading/i })
+      expect(spinner.classList.contains('border-brand-primary')).toBe(true)
+      expect(mockedGetState).not.toHaveBeenCalled()
+    })
+
+    it('clicking Approve in demo mode swaps to the submitted state without calling submitExplorationFeedback', async () => {
+      render(
+        <ExplorationStage
+          sessionId="demo"
+          stage="AWAITING_INVESTIGATION_REVIEW"
+          mockState={makeState()}
+        />,
+      )
+      fireEvent.click(await screen.findByRole('button', { name: /Approve & Continue/i }))
+      expect(await screen.findByText(/Moving to rule proposal/)).toBeInTheDocument()
+      expect(mockedSubmit).not.toHaveBeenCalled()
+    })
+
+    it('clicking Re-investigate with feedback in demo mode submits without calling the API', async () => {
+      render(
+        <ExplorationStage
+          sessionId="demo"
+          stage="AWAITING_INVESTIGATION_REVIEW"
+          mockState={makeState()}
+        />,
+      )
+      const textarea = await screen.findByPlaceholderText(/Dig deeper/)
+      fireEvent.change(textarea, { target: { value: 'dig in' } })
+      fireEvent.click(screen.getByRole('button', { name: /Re-investigate/i }))
+      expect(await screen.findByText(/Moving to rule proposal/)).toBeInTheDocument()
+      expect(mockedSubmit).not.toHaveBeenCalled()
+    })
+  })
 })

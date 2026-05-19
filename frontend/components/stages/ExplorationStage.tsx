@@ -9,13 +9,7 @@ import {
   submitExplorationFeedback,
 } from '@/lib/api'
 
-interface Props {
-  sessionId: string
-  stage: string
-  readOnly?: boolean
-}
-
-interface ExplorationState {
+export interface ExplorationState {
   open_questions: string[]
   investigation_round: number
   notebook_ready: boolean
@@ -24,7 +18,17 @@ interface ExplorationState {
   exploration_findings: Record<string, unknown>
 }
 
-export function ExplorationStage({ sessionId, stage, readOnly }: Props) {
+interface Props {
+  sessionId: string
+  stage: string
+  readOnly?: boolean
+  // Demo/preview only: when defined, the component renders this state directly
+  // and never polls or submits. Used by /demo/explore.
+  mockState?: ExplorationState | null
+}
+
+export function ExplorationStage({ sessionId, stage, readOnly, mockState }: Props) {
+  const isDemo = mockState !== undefined
   const [state, setState] = useState<ExplorationState | null>(null)
   const [feedback, setFeedback] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -44,16 +48,25 @@ export function ExplorationStage({ sessionId, stage, readOnly }: Props) {
 
   // poll until notebook_ready, then stop. Pre-existing stale-closure quirk
   // preserved verbatim per spec; fixing it is out of scope for Stage 5.
+  // Demo mode short-circuits the polling and renders mockState directly.
   useEffect(() => {
+    if (isDemo) {
+      setState(mockState ?? null)
+      return
+    }
     load()
     if (state?.notebook_ready) return
     const t = setInterval(() => {
       load()
     }, 3000)
     return () => clearInterval(t)
-  }, [load, state?.notebook_ready])
+  }, [isDemo, mockState, load, state?.notebook_ready])
 
   async function handleApprove() {
+    if (isDemo) {
+      setSubmitted(true)
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -68,6 +81,10 @@ export function ExplorationStage({ sessionId, stage, readOnly }: Props) {
 
   async function handleRequestReinvestigation() {
     if (!feedback.trim()) return
+    if (isDemo) {
+      setSubmitted(true)
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
