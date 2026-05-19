@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { ArrowRight, Download, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Download, RefreshCw } from 'lucide-react'
 
 type ScenarioKey =
   | 'ready'
@@ -159,9 +159,15 @@ function PreviewExploration({ scenario }: { scenario: Scenario }) {
         </div>
         <p className="text-xs text-fg-muted">
           Review the AI's investigation findings before rules are proposed.
-          {maxRoundsReached && ' Maximum re-investigation rounds reached — approve to continue.'}
         </p>
       </div>
+
+      {maxRoundsReached && (
+        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning-deep">
+          <AlertTriangle size={14} strokeWidth={2} />
+          Maximum re-investigation rounds reached — approve to continue.
+        </div>
+      )}
 
       {state.open_questions.length > 0 && (
         <div className="bg-warning/15 border border-warning/30 rounded-xl p-4 flex flex-col gap-2">

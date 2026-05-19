@@ -1,7 +1,7 @@
 // frontend/components/stages/ExplorationStage.tsx
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowRight, Download, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Download, RefreshCw } from 'lucide-react'
 import {
   getExplorationState,
   getNotebookHtmlUrl,
@@ -114,9 +114,16 @@ export function ExplorationStage({ sessionId, stage, readOnly }: Props) {
         </div>
         <p className="text-xs text-fg-muted">
           Review the AI's investigation findings before rules are proposed.
-          {maxRoundsReached && ' Maximum re-investigation rounds reached — approve to continue.'}
         </p>
       </div>
+
+      {/* Max rounds reached banner */}
+      {maxRoundsReached && (
+        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning-deep">
+          <AlertTriangle size={14} strokeWidth={2} />
+          Maximum re-investigation rounds reached — approve to continue.
+        </div>
+      )}
 
       {/* Open Questions card */}
       {state && state.open_questions.length > 0 && (
