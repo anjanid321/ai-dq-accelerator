@@ -1,4 +1,9 @@
+// frontend/components/ai-panel/EventFeed.tsx
+'use client'
+import { useRef } from 'react'
 import type { AIEvent } from '@/hooks/useAIStream'
+import { useStickToBottom } from '@/hooks/useStickToBottom'
+import { ScrollToLatestPill } from './ScrollToLatestPill'
 
 function formatTimestamp(ts: string | number): string {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -89,13 +94,22 @@ function EventCard({ event, highlighted }: CardProps) {
 }
 
 export function EventFeed({ events }: { events: AIEvent[] }) {
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const { pinned, unreadCount, scrollToBottom } = useStickToBottom(scrollerRef, events.length)
+
   if (events.length === 0) return <div className="flex-1" />
+
   const lastIndex = events.length - 1
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 flex flex-col gap-2">
+    <div
+      ref={scrollerRef}
+      data-testid="event-feed-scroller"
+      className="relative flex-1 overflow-y-auto overflow-x-hidden p-3 flex flex-col gap-2"
+    >
       {events.map((ev, i) => (
         <EventCard key={i} event={ev} highlighted={i === lastIndex} />
       ))}
+      {!pinned && <ScrollToLatestPill unreadCount={unreadCount} onClick={scrollToBottom} />}
     </div>
   )
 }
