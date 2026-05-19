@@ -131,31 +131,15 @@ function SessionsList({ onOpen }: { onOpen: (id: string) => void }) {
 function Workspace({ onBack }: { onBack: () => void }) {
   const [viewingStage, setViewingStage] = useState<StageId>('profile')
 
-  const isExploreOnward =
-    viewingStage === 'explore' ||
-    viewingStage === 'rules' ||
-    viewingStage === 'validate' ||
-    viewingStage === 'triage' ||
-    viewingStage === 'plan' ||
-    viewingStage === 'transform' ||
-    viewingStage === 'scorecard' ||
-    viewingStage === 'pipeline'
-
-  const isRulesOnward =
-    viewingStage === 'rules' ||
-    viewingStage === 'validate' ||
-    viewingStage === 'triage' ||
-    viewingStage === 'plan' ||
-    viewingStage === 'transform' ||
-    viewingStage === 'scorecard' ||
-    viewingStage === 'pipeline'
-
-  const sessionForTopBar = isRulesOnward ? DEMO_RULES_SESSION : DEMO_PROFILE_SESSION
-
-  const completed: StageId[] = ['load', 'profile']
-  if (isRulesOnward) completed.push('explore')
-
+  // The demo's "live workflow position" is fixed at Rules. Completion and the
+  // TopBar score follow `active` (matches the real workspace, where current
+  // state doesn't change as the user clicks back through the stepper).
+  const STAGE_ORDER: StageId[] = [
+    'load', 'profile', 'explore', 'rules',
+    'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline',
+  ]
   const active: StageId = 'rules'
+  const completed: StageId[] = STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(active))
 
   function renderStage() {
     switch (viewingStage) {
@@ -192,7 +176,7 @@ function Workspace({ onBack }: { onBack: () => void }) {
         filename={DEMO_FILENAME}
         rowCount={DEMO_PROFILE_TABLE.n_rows}
         colCount={DEMO_PROFILE_TABLE.n_columns}
-        currentScore={isExploreOnward ? sessionForTopBar.current_score : undefined}
+        currentScore={DEMO_RULES_SESSION.current_score}
       />
       <div className="flex flex-1 overflow-hidden">
         <Stepper
