@@ -5,7 +5,7 @@
 // engineered to be visually rich enough to exercise every chip palette and
 // decision affordance the designs introduce.
 
-import type { SessionState, Rule } from '@/lib/types'
+import type { SessionState, Rule, SessionListEntry } from '@/lib/types'
 import type { AIEvent } from '@/hooks/useAIStream'
 import type { ExplorationState } from '@/components/stages/ExplorationStage'
 
@@ -190,6 +190,48 @@ export const DEMO_EXPLORE_STATE: ExplorationState = {
   synthesis_constrained: false,
   synthesis_constraint_reasons: [],
 }
+
+// Sessions list — 4 entries covering the chip palettes shown by SessionCard:
+// awaiting (warning), progress (info), complete (success). The first entry is
+// the same session the rest of the demo walks through.
+export const DEMO_SESSIONS_LIST: SessionListEntry[] = [
+  {
+    id: 'demo',
+    filename: 'loan_applications.csv',
+    stage: 'AWAITING_RULE_APPROVAL',
+    current_score: 0.78,
+    baseline_score: 0.78,
+    created_at: new Date(Date.now() - 1000 * 60 * 12).toISOString(), // 12 min ago
+    updated_at: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+  },
+  {
+    id: 'demo-2',
+    filename: 'q1_customer_signups.csv',
+    stage: 'AWAITING_INVESTIGATION_REVIEW',
+    current_score: 0.81,
+    baseline_score: 0.81,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), // 3h ago
+    updated_at: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
+  },
+  {
+    id: 'demo-3',
+    filename: 'inventory_snapshot_2026_q1.parquet',
+    stage: 'TRANSFORMATION_LOOP',
+    current_score: 0.84,
+    baseline_score: 0.71,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(), // ~28h ago
+    updated_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+  },
+  {
+    id: 'demo-4',
+    filename: 'lender_pipeline_2025_run.csv',
+    stage: 'COMPLETE',
+    current_score: 0.94,
+    baseline_score: 0.66,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), // 5 days ago
+    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
+  },
+]
 
 export const DEMO_AI_EVENTS: AIEvent[] = [
   { event: 'thinking', ts: Date.now() - 30_000, text: 'Loading loan_applications.csv into a session DuckDB…' },
