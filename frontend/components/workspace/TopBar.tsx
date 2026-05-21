@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Ellipsis } from 'lucide-react'
 import { Logo } from '@/components/theme/Logo'
+import { Chip, type ScoreTone } from '@/components/ui/Chip'
 
 interface Props {
   filename: string
@@ -11,16 +12,8 @@ interface Props {
 
 export function TopBar({ filename, rowCount, colCount, currentScore }: Props) {
   const pct = currentScore != null ? Math.round(currentScore * 100) : null
-
-  const variant =
+  const tone: ScoreTone | null =
     pct === null ? null : pct >= 90 ? 'success' : pct >= 70 ? 'warning' : 'danger'
-
-  const chipClass =
-    variant === 'success'
-      ? 'border-success text-success-deep'
-      : variant === 'warning'
-      ? 'border-warning text-warning-deep'
-      : 'border-danger text-danger-deep'
 
   return (
     <div className="h-14 bg-surface border-b border-border flex items-center gap-3 px-4 shrink-0">
@@ -55,13 +48,10 @@ export function TopBar({ filename, rowCount, colCount, currentScore }: Props) {
       <span className="flex-1" />
 
       {/* Score chip */}
-      {pct !== null && variant !== null && (
-        <div
-          data-variant={variant}
-          className={`bg-surface border rounded-full px-2.5 py-0.5 text-xs font-semibold ${chipClass}`}
-        >
-          Score: {pct}%
-        </div>
+      {pct !== null && tone !== null && (
+        <Chip variant="score" tone={tone}>
+          <span data-variant={tone}>Score: {pct}%</span>
+        </Chip>
       )}
 
       {/* Three-dots overflow indicator */}

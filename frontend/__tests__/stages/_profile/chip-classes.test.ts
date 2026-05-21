@@ -1,42 +1,36 @@
 // frontend/__tests__/stages/_profile/chip-classes.test.ts
-import { chipClasses } from '@/components/stages/_profile/chip-classes'
+import { chipTone } from '@/components/stages/_profile/chip-classes'
 
-describe('chipClasses', () => {
-  describe('warning bucket (amber)', () => {
+describe('chipTone', () => {
+  describe('warning bucket', () => {
     it.each(['Missing', 'missing', 'MISSING', 'Constant', 'constant'])(
       'maps %s to warning',
       (input) => {
-        const cls = chipClasses(input)
-        expect(cls).toContain('bg-warning/15')
-        expect(cls).toContain('text-warning-deep')
+        expect(chipTone(input)).toBe('warning')
       },
     )
   })
 
-  describe('info bucket (blue)', () => {
+  describe('info bucket', () => {
     it.each(['High Cardinality', 'high cardinality', 'Duplicates', 'Skewness', 'Skew'])(
       'maps %s to info',
       (input) => {
-        const cls = chipClasses(input)
-        expect(cls).toContain('bg-info/15')
-        expect(cls).toContain('text-info-deep')
+        expect(chipTone(input)).toBe('info')
       },
     )
   })
 
-  describe('danger bucket (red fallback)', () => {
+  describe('danger bucket', () => {
     it.each(['Type Mismatch', 'Some Future Alert', 'unknown', ''])(
       'maps %s (unrecognized) to danger',
       (input) => {
-        const cls = chipClasses(input)
-        expect(cls).toContain('bg-danger/15')
-        expect(cls).toContain('text-danger-deep')
+        expect(chipTone(input)).toBe('danger')
       },
     )
 
     it('handles null and undefined safely', () => {
-      expect(chipClasses(null)).toContain('text-danger-deep')
-      expect(chipClasses(undefined)).toContain('text-danger-deep')
+      expect(chipTone(null)).toBe('danger')
+      expect(chipTone(undefined)).toBe('danger')
     })
   })
 })

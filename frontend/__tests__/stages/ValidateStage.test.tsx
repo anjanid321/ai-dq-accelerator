@@ -202,7 +202,7 @@ describe('ValidateStage', () => {
     expect(order.slice(3).sort()).toEqual(['pass_a', 'pass_b'])
   })
 
-  it('renders a FAILED chip with danger-deep tokens and left-border on a failed rule', () => {
+  it('renders a Failed chip with danger-deep tokens and left-border on a failed rule', () => {
     const { container } = render(
       <ValidateStage
         session={makeSession({
@@ -219,7 +219,7 @@ describe('ValidateStage', () => {
         })}
       />,
     )
-    const chip = screen.getByText(/FAILED · 6/)
+    const chip = screen.getByText(/Failed · 6/)
     expect(chip.className).toContain('bg-danger/15')
     expect(chip.className).toContain('text-danger-deep')
     // Card has the left-border-token accent
@@ -228,7 +228,7 @@ describe('ValidateStage', () => {
     expect(screen.getByText('3.0% of rows')).toBeInTheDocument()
   })
 
-  it('renders an EVAL ERROR chip with warning-deep tokens and the error block', () => {
+  it('renders an Eval Error chip with warning-deep tokens and the error block', () => {
     const { container } = render(
       <ValidateStage
         session={makeSession({
@@ -245,7 +245,7 @@ describe('ValidateStage', () => {
         })}
       />,
     )
-    const chip = screen.getByText('EVAL ERROR')
+    const chip = screen.getByText('Eval Error')
     expect(chip.className).toContain('bg-warning/15')
     expect(chip.className).toContain('text-warning-deep')
     expect(container.querySelector('.border-l-warning-deep')).not.toBeNull()
@@ -255,7 +255,7 @@ describe('ValidateStage', () => {
     expect(errorBlock.className).toContain('font-mono')
   })
 
-  it('renders a PASSED chip with success-deep tokens and left-border on a passed rule', () => {
+  it('renders a Passed chip with success-deep tokens and left-border on a passed rule', () => {
     const { container } = render(
       <ValidateStage
         session={makeSession({
@@ -272,7 +272,7 @@ describe('ValidateStage', () => {
         })}
       />,
     )
-    const chip = screen.getByText('PASSED')
+    const chip = screen.getByText('Passed')
     expect(chip.className).toContain('bg-success/15')
     expect(chip.className).toContain('text-success-deep')
     expect(container.querySelector('.border-l-success-deep')).not.toBeNull()

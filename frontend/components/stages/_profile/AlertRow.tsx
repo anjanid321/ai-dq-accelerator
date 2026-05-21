@@ -1,6 +1,7 @@
 // frontend/components/stages/_profile/AlertRow.tsx
 'use client'
-import { chipClasses } from './chip-classes'
+import { Chip } from '@/components/ui/Chip'
+import { chipTone } from './chip-classes'
 
 export interface AlertEntry {
   column?: string
@@ -19,9 +20,7 @@ export function AlertRow({ alert }: Props) {
       <div className="flex items-center gap-2.5">
         <span className="text-[13px] font-semibold text-fg">{column || 'Table-level'}</span>
         {type && (
-          <span className={`${chipClasses(type)} text-[11px] font-semibold px-2 py-0.5 rounded-md`}>
-            {type}
-          </span>
+          <Chip variant="status" tone={chipTone(type)}>{type}</Chip>
         )}
       </div>
       {description && <p className="text-xs text-fg-muted leading-relaxed">{description}</p>}

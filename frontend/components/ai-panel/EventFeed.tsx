@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import type { AIEvent } from '@/hooks/useAIStream'
 import { useStickToBottom } from '@/hooks/useStickToBottom'
 import { ScrollToLatestPill } from './ScrollToLatestPill'
+import { Chip } from '@/components/ui/Chip'
 
 function formatTimestamp(ts: string | number): string {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -16,7 +17,6 @@ interface CardProps {
 
 const cardBase = 'bg-surface rounded-lg p-3 flex flex-col gap-1.5 border min-w-0 overflow-hidden'
 const bodyClass = 'text-[11px] font-mono text-fg-muted leading-relaxed whitespace-pre-wrap break-all'
-const badgeBase = 'inline-flex items-center text-[10px] font-mono font-semibold px-2 py-0.5 rounded uppercase tracking-wide shrink-0'
 const toolNameClass = 'text-[10px] font-mono text-fg truncate min-w-0'
 const timestampClass = 'text-[10px] text-fg-muted ml-auto shrink-0 tabular-nums'
 
@@ -32,7 +32,7 @@ function ToolCallCard({ event: ev, highlighted }: CardProps) {
   return (
     <div className={[cardBase, highlighted ? 'border-accent-indigo ring-1 ring-accent-indigo/40' : 'border-border'].join(' ')}>
       <div className="flex items-center gap-2">
-        <span className={`${badgeBase} bg-accent-indigo/15 text-accent-indigo-deep`}>TOOL CALL</span>
+        <Chip variant="status" tone="accent-indigo" className="shrink-0">Tool Call</Chip>
         {ev.tool != null && <span className={toolNameClass}>{String(ev.tool)}</span>}
         {ev.ts != null && <span className={timestampClass}>{formatTimestamp(ev.ts)}</span>}
       </div>
@@ -46,7 +46,7 @@ function ResultCard({ event: ev, highlighted }: CardProps) {
   return (
     <div className={[cardBase, highlighted ? 'border-success ring-1 ring-success/40' : 'border-border'].join(' ')}>
       <div className="flex items-center gap-2">
-        <span className={`${badgeBase} bg-success/15 text-success-deep`}>RESULT</span>
+        <Chip variant="status" tone="success" className="shrink-0">Result</Chip>
         {ev.tool != null && <span className={toolNameClass}>{String(ev.tool)}</span>}
         {ev.ts != null && <span className={timestampClass}>{formatTimestamp(ev.ts)}</span>}
       </div>
@@ -60,7 +60,7 @@ function ThinkingCard({ event: ev, highlighted }: CardProps) {
   return (
     <div className={[cardBase, highlighted ? 'border-accent-purple ring-1 ring-accent-purple/40' : 'border-border'].join(' ')}>
       <div className="flex items-center gap-2">
-        <span className={`${badgeBase} bg-accent-purple/15 text-accent-purple-deep`}>THINKING</span>
+        <Chip variant="status" tone="accent-purple" className="shrink-0">Thinking</Chip>
         {ev.ts != null && <span className={timestampClass}>{formatTimestamp(ev.ts)}</span>}
       </div>
       {text && <p className="text-[11px] italic text-fg-muted leading-relaxed break-words">{text}</p>}
@@ -72,7 +72,7 @@ function DoneCard({ event: ev, highlighted }: CardProps) {
   return (
     <div className={[cardBase, highlighted ? 'border-fg-muted ring-1 ring-fg-muted/40' : 'border-border'].join(' ')}>
       <div className="flex items-center gap-2">
-        <span className={`${badgeBase} bg-fg-subtle/15 text-fg-muted`}>DONE</span>
+        <Chip variant="status" tone="neutral" className="shrink-0">Done</Chip>
         {ev.tool != null && <span className={toolNameClass}>{String(ev.tool)}</span>}
         {ev.ts != null && <span className={timestampClass}>{formatTimestamp(ev.ts)}</span>}
       </div>

@@ -5,6 +5,7 @@ import { Download, MoreVertical, Trash2 } from 'lucide-react'
 import type { SessionListEntry } from '@/lib/types'
 import { deleteSession, getPipelineDownloadUrl } from '@/lib/api'
 import { STAGE_LABELS, stageCategory, stageDetail, type StageCategory } from '@/lib/stages'
+import { Chip, type StatusTone } from '@/components/ui/Chip'
 
 interface Props {
   entry: SessionListEntry
@@ -19,10 +20,10 @@ function scoreVariant(score: number): ScoreVariant {
   return 'danger'
 }
 
-const CHIP_CLASSES: Record<StageCategory, string> = {
-  awaiting: 'bg-warning/15 text-warning-deep',
-  progress: 'bg-info/15 text-info-deep',
-  complete: 'bg-success/15 text-success-deep',
+const CATEGORY_TONE: Record<StageCategory, StatusTone> = {
+  awaiting: 'warning',
+  progress: 'info',
+  complete: 'success',
 }
 
 const SCORE_TEXT: Record<ScoreVariant, string> = {
@@ -100,15 +101,13 @@ export function SessionCard({ entry, onOpen, onDeleted }: Props) {
             </div>
           )}
         </div>
-        <span
-          data-stage-category={category}
-          className={[
-            'ml-auto inline-flex items-center px-2 py-1 rounded-md text-[11px] font-semibold tracking-tight shrink-0',
-            CHIP_CLASSES[category],
-          ].join(' ')}
+        <Chip
+          variant="status"
+          tone={CATEGORY_TONE[category]}
+          className="ml-auto shrink-0"
         >
-          {STAGE_LABELS[entry.stage]}
-        </span>
+          <span data-stage-category={category}>{STAGE_LABELS[entry.stage]}</span>
+        </Chip>
         <div ref={menuRef} className="relative shrink-0">
           <button
             type="button"

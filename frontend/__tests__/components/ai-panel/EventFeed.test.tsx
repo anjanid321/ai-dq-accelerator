@@ -15,9 +15,9 @@ describe('EventFeed', () => {
       ev('thinking', { content: 'Validating column types.' }),
     ]
     render(<EventFeed events={events} />)
-    expect(screen.getByText('TOOL CALL')).toBeInTheDocument()
-    expect(screen.getByText('RESULT')).toBeInTheDocument()
-    expect(screen.getByText('THINKING')).toBeInTheDocument()
+    expect(screen.getByText('Tool Call')).toBeInTheDocument()
+    expect(screen.getByText('Result')).toBeInTheDocument()
+    expect(screen.getByText('Thinking')).toBeInTheDocument()
   })
 
   it('does not show the scroll-to-latest pill while pinned to the bottom', () => {

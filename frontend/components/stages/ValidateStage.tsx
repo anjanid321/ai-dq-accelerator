@@ -1,6 +1,7 @@
 // frontend/components/stages/ValidateStage.tsx
 'use client'
 import type { SessionState, PerRuleResult } from '@/lib/types'
+import { Chip, type StatusTone } from '@/components/ui/Chip'
 
 interface Props {
   session: SessionState | null
@@ -11,10 +12,9 @@ interface Props {
 
 function CategoryPill({ label, score }: { label: string; score: number }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-elevated text-[11px] text-fg-muted border border-border">
+    <Chip variant="neutral" value={`${Math.round(score * 100)}%`}>
       <span className="capitalize">{label}</span>
-      <span className="font-semibold text-fg">{Math.round(score * 100)}%</span>
-    </span>
+    </Chip>
   )
 }
 
@@ -80,11 +80,12 @@ function RuleCard({ rule }: { rule: PerRuleResult }) {
       ? 'border-l-danger-deep'
       : 'border-l-success-deep'
 
-  const chipClasses = hasError
-    ? 'bg-warning/15 text-warning-deep border border-warning/30'
+  const resultTone: StatusTone = hasError ? 'warning' : failed ? 'danger' : 'success'
+  const resultLabel = hasError
+    ? 'Eval Error'
     : failed
-      ? 'bg-danger/15 text-danger-deep border border-danger/30'
-      : 'bg-success/15 text-success-deep border border-success/30'
+      ? `Failed · ${rule.failure_count}`
+      : 'Passed'
 
   return (
     <div
@@ -106,11 +107,7 @@ function RuleCard({ rule }: { rule: PerRuleResult }) {
               {(rule.failure_rate * 100).toFixed(1)}% of rows
             </span>
           )}
-          <span
-            className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${chipClasses}`}
-          >
-            {hasError ? 'EVAL ERROR' : failed ? `FAILED · ${rule.failure_count}` : 'PASSED'}
-          </span>
+          <Chip variant="status" tone={resultTone}>{resultLabel}</Chip>
         </div>
       </div>
       {hasError && (

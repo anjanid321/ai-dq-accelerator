@@ -8,6 +8,7 @@ import {
   getNotebookDownloadUrl,
   submitExplorationFeedback,
 } from '@/lib/api'
+import { Chip } from '@/components/ui/Chip'
 
 export interface ExplorationState {
   open_questions: string[]
@@ -124,9 +125,9 @@ export function ExplorationStage({ sessionId, stage, readOnly, mockState }: Prop
           <h1 className="text-base font-bold text-fg">Exploration Review</h1>
           <span className="flex-1" />
           {state && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-elevated border border-border text-[11px] font-semibold text-fg-muted">
+            <Chip variant="neutral">
               Round {state.investigation_round + 1} of 3
-            </span>
+            </Chip>
           )}
         </div>
         <p className="text-xs text-fg-muted">

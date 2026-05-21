@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import { ArrowRight, UploadCloud, X } from 'lucide-react'
 import { createSession } from '@/lib/api'
+import { Chip } from '@/components/ui/Chip'
 
 interface Props {
   onCreated: (id: string) => void
@@ -117,12 +118,7 @@ export function UploadModal({ onCreated, onClose, demoMode }: Props) {
             </div>
             <div className="flex items-center gap-1.5 mt-1">
               {ACCEPTED_TYPES.map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center px-2 py-0.5 rounded-md bg-elevated border border-border text-[11px] font-semibold text-fg-muted"
-                >
-                  {t}
-                </span>
+                <Chip key={t} variant="neutral">{t}</Chip>
               ))}
             </div>
             <input
