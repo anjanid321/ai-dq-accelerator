@@ -128,18 +128,24 @@ function SessionsList({ onOpen }: { onOpen: (id: string) => void }) {
   )
 }
 
-function Workspace({ onBack }: { onBack: () => void }) {
-  const [viewingStage, setViewingStage] = useState<StageId>('profile')
+// The demo's "live workflow position" is fixed at Rules — matches a session
+// sitting at AWAITING_RULE_APPROVAL. Completion and the TopBar score follow
+// `active` (real workspace pattern: current state doesn't change as the user
+// clicks back through the stepper).
+const STAGE_ORDER: StageId[] = [
+  'load', 'profile', 'explore', 'rules',
+  'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline',
+]
+const ACTIVE_STAGE: StageId = 'rules'
+const COMPLETED_STAGES: StageId[] = STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(ACTIVE_STAGE))
 
-  // The demo's "live workflow position" is fixed at Rules. Completion and the
-  // TopBar score follow `active` (matches the real workspace, where current
-  // state doesn't change as the user clicks back through the stepper).
-  const STAGE_ORDER: StageId[] = [
-    'load', 'profile', 'explore', 'rules',
-    'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline',
-  ]
-  const active: StageId = 'rules'
-  const completed: StageId[] = STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(active))
+function Workspace({ onBack }: { onBack: () => void }) {
+  // Default to the active stage so opening a card lands on the live stage,
+  // exactly like clicking a SessionCard in the real app. Past stages are
+  // reachable via the stepper; the banner's "Return →" link comes back here.
+  const [viewingStage, setViewingStage] = useState<StageId>(ACTIVE_STAGE)
+  const active = ACTIVE_STAGE
+  const completed = COMPLETED_STAGES
 
   function renderStage() {
     switch (viewingStage) {
