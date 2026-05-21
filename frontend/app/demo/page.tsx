@@ -2,9 +2,9 @@
 //
 // Persistent demo route for walking the Round 2 redesigns against frozen mock
 // data. Opens on the sessions-list screen (matches the real homepage chrome)
-// and lets you click a card to enter the workspace shell for the 4 Round-2
-// stages (Load → Profile → Explore → Rules). No backend, no polling, no API
-// calls.
+// and lets you click a card to enter the workspace shell for the Round-2
+// stages (Load → Profile → Explore → Rules → Validate). No backend, no
+// polling, no API calls.
 'use client'
 
 import { useMemo, useState } from 'react'
@@ -52,7 +52,7 @@ function OutOfScopePlaceholder({ stage }: { stage: StageId }) {
     <div className="p-5 flex flex-col items-center justify-center h-full gap-3 text-center">
       <div className="text-sm font-semibold text-fg">{stage} stage not in demo scope</div>
       <p className="text-xs text-fg-muted max-w-md">
-        The /demo route covers the Round 2 redesigns shipped so far — Sessions, Load, Profile, Explore, and Rules. Later stages will land here as they're retokenized.
+        The /demo route covers the Round 2 redesigns shipped so far — Sessions, Load, Profile, Explore, Rules, and Validate. Later stages will land here as they're retokenized.
       </p>
     </div>
   )
@@ -140,8 +140,8 @@ function SessionsList({ onOpen }: { onOpen: (id: string) => void }) {
   )
 }
 
-// The demo's "live workflow position" is fixed at Rules — matches a session
-// sitting at AWAITING_RULE_APPROVAL. Completion and the TopBar score follow
+// The demo's "live workflow position" is fixed at Validate — matches a
+// session sitting at VALIDATING. Completion and the TopBar score follow
 // `active` (real workspace pattern: current state doesn't change as the user
 // clicks back through the stepper).
 const STAGE_ORDER: StageId[] = [
