@@ -5,7 +5,7 @@
 // engineered to be visually rich enough to exercise every chip palette and
 // decision affordance the designs introduce.
 
-import type { SessionState, Rule, SessionListEntry } from '@/lib/types'
+import type { SessionState, Rule, SessionListEntry, PerRuleResult, ValidationResults } from '@/lib/types'
 import type { AIEvent } from '@/hooks/useAIStream'
 import type { ExplorationState } from '@/components/stages/ExplorationStage'
 
@@ -176,6 +176,147 @@ export const DEMO_RULES_SESSION: SessionState = {
   suggested_rules: DEMO_RULES,
   baseline_quality_score: 0.78,
   current_score: 0.78,
+}
+
+// Validation results mirror the engineered anomalies in
+// samples/loan_applications.csv so the pass/fail mix reads true to life.
+const DEMO_PER_RULE: PerRuleResult[] = [
+  {
+    id: 'r1',
+    category: 'uniqueness',
+    column: 'application_id',
+    check: 'unique',
+    passed: true,
+    failure_count: 0,
+    failure_rate: 0,
+    sample_failing_rows: [],
+    rationale: 'application_id is 100% distinct in profiling — enforce uniqueness so future inserts can\'t collide.',
+  },
+  {
+    id: 'r2',
+    category: 'completeness',
+    column: 'applicant_name',
+    check: 'not_null',
+    passed: true,
+    failure_count: 0,
+    failure_rate: 0,
+    sample_failing_rows: [],
+    rationale: 'applicant_name is 0% missing today — pin completeness at 100%.',
+  },
+  {
+    id: 'r3',
+    category: 'completeness',
+    column: 'state_code',
+    check: 'not_null',
+    passed: true,
+    failure_count: 0,
+    failure_rate: 0,
+    sample_failing_rows: [],
+    rationale: 'state_code is 0% missing and constant — enforce completeness.',
+  },
+  {
+    id: 'r4',
+    category: 'validity',
+    column: 'credit_score',
+    check: 'range(300, 850)',
+    passed: true,
+    failure_count: 0,
+    failure_rate: 0,
+    sample_failing_rows: [],
+    rationale: 'FICO scores fall in 300–850. Tolerate 1% out-of-range for legacy data import errors.',
+  },
+  {
+    id: 'r5',
+    category: 'validity',
+    column: 'application_date',
+    check: 'max_date(today)',
+    passed: false,
+    failure_count: 3,
+    failure_rate: 0.015,
+    sample_failing_rows: [
+      { application_id: 'LA-000017', application_date: '2030-04-15', credit_score: 720 },
+      { application_id: 'LA-000089', application_date: '2030-08-02', credit_score: 685 },
+      { application_id: 'LA-000142', application_date: '2030-12-21', credit_score: 740 },
+    ],
+    rationale: 'application_date should never be in the future. 3 rows fail this and need to be clipped.',
+  },
+  {
+    id: 'r6',
+    category: 'validity',
+    column: 'email',
+    check: 'regex(email)',
+    passed: false,
+    failure_count: 6,
+    failure_rate: 0.03,
+    sample_failing_rows: [
+      { application_id: 'LA-000005', email: 'maria.gonzalez.invalid', applicant_name: 'Maria Gonzalez' },
+      { application_id: 'LA-000031', email: 'jin.park.invalid', applicant_name: 'Jin Park' },
+      { application_id: 'LA-000077', email: 'thandiwe.mokoena.invalid', applicant_name: 'Thandiwe Mokoena' },
+    ],
+    rationale: '6 rows fail standard email format. Tolerate 5% to leave room for missing values.',
+  },
+  {
+    id: 'r7',
+    category: 'consistency',
+    column: 'phone',
+    check: 'format((XXX) XXX-XXXX)',
+    passed: false,
+    failure_count: 152,
+    failure_rate: 0.76,
+    sample_failing_rows: [
+      { application_id: 'LA-000003', phone: '7035551234', applicant_name: 'Ahmed Hassan' },
+      { application_id: 'LA-000011', phone: '703.555.4821', applicant_name: 'Priya Patel' },
+      { application_id: 'LA-000024', phone: '+1-703-555-9912', applicant_name: 'Carlos Rivera' },
+    ],
+    rationale: 'phone shows 5 different formats. Normalize toward (XXX) XXX-XXXX before re-validating.',
+  },
+  {
+    id: 'r8',
+    category: 'validity',
+    column: 'loan_status',
+    check: 'in([APPROVED, REJECTED, PENDING])',
+    passed: true,
+    failure_count: 0,
+    failure_rate: 0,
+    sample_failing_rows: [],
+    rationale: 'loan_status has 3 distinct values today — pin the allowed set.',
+  },
+  {
+    id: 'r9-eval',
+    category: 'consistency',
+    column: 'co_signer_ssn',
+    check: 'custom_code(format_check)',
+    passed: false,
+    failure_count: 0,
+    failure_rate: 0,
+    sample_failing_rows: [],
+    rationale: 'Custom SSN-format check; failed to compile against the sandboxed environment.',
+    error: "NameError: name 're' is not defined (sandbox blocks the `re` import — rewrite without regex).",
+  },
+]
+
+const DEMO_VALIDATION_RESULTS: ValidationResults = {
+  per_rule: DEMO_PER_RULE,
+  category_scores: {
+    completeness: 1.0,
+    uniqueness: 1.0,
+    validity: 0.78,
+    consistency: 0.5,
+  },
+  baseline_quality_score: 0.78,
+}
+
+export const DEMO_VALIDATE_SESSION: SessionState = {
+  ...baseSession('VALIDATING'),
+  ai_summary: DEMO_AI_SUMMARY,
+  suggested_rules: DEMO_RULES,
+  baseline_quality_score: 0.78,
+  current_score: 0.82,
+  validation_summary:
+    'The dataset clears the structural rules — application_id is unique, completeness on applicant_name and state_code is at 100%, and loan_status falls in the allowed value set. Failures cluster on format consistency: phone shows five different formats (76% of rows), email has 6 malformed values, and 3 application_date entries are in the future. One custom rule failed to evaluate in the sandbox.',
+  anomaly_summary:
+    'Two applications with credit_score < 600 are marked APPROVED — worth surfacing to the underwriter before the rules pipeline locks in. The cross-column pattern is unusual enough to be either an exception path or an intake mistake, not a data-quality issue per se.',
+  validation_results: DEMO_VALIDATION_RESULTS,
 }
 
 export const DEMO_EXPLORE_STATE: ExplorationState = {

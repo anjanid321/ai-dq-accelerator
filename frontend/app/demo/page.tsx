@@ -16,6 +16,7 @@ import { LoadingStage } from '@/components/stages/LoadingStage'
 import { ProfileStage } from '@/components/stages/ProfileStage'
 import { ExplorationStage } from '@/components/stages/ExplorationStage'
 import { RulesStage } from '@/components/stages/RulesStage'
+import { ValidateStage } from '@/components/stages/ValidateStage'
 import { SessionCard } from '@/components/sessions/SessionCard'
 import { SessionsTopBar } from '@/components/sessions/SessionsTopBar'
 import { UploadModal } from '@/components/sessions/UploadModal'
@@ -27,17 +28,18 @@ import {
   DEMO_PROFILE_SESSION,
   DEMO_PROFILE_TABLE,
   DEMO_RULES_SESSION,
+  DEMO_VALIDATE_SESSION,
   DEMO_SESSIONS_LIST,
 } from './_fixtures/mock-session'
 
-const DEMO_STAGES: StageId[] = ['load', 'profile', 'explore', 'rules']
+const DEMO_STAGES: StageId[] = ['load', 'profile', 'explore', 'rules', 'validate']
 
 const WAITING_MESSAGES: Record<StageId, string | undefined> = {
   load: 'Loading dataset…',
   profile: 'Profiling complete',
   explore: 'Awaiting exploration review',
   rules: 'Awaiting rule decisions',
-  validate: undefined,
+  validate: 'Running validation rules…',
   triage: undefined,
   plan: undefined,
   transform: undefined,
@@ -146,7 +148,7 @@ const STAGE_ORDER: StageId[] = [
   'load', 'profile', 'explore', 'rules',
   'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline',
 ]
-const ACTIVE_STAGE: StageId = 'rules'
+const ACTIVE_STAGE: StageId = 'validate'
 const COMPLETED_STAGES: StageId[] = STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(ACTIVE_STAGE))
 
 function Workspace({ onBack }: { onBack: () => void }) {
@@ -178,6 +180,8 @@ function Workspace({ onBack }: { onBack: () => void }) {
         )
       case 'rules':
         return <RulesStage session={DEMO_RULES_SESSION} readOnly />
+      case 'validate':
+        return <ValidateStage session={DEMO_VALIDATE_SESSION} />
       default:
         return <OutOfScopePlaceholder stage={viewingStage} />
     }
@@ -192,7 +196,7 @@ function Workspace({ onBack }: { onBack: () => void }) {
         filename={DEMO_FILENAME}
         rowCount={DEMO_PROFILE_TABLE.n_rows}
         colCount={DEMO_PROFILE_TABLE.n_columns}
-        currentScore={DEMO_RULES_SESSION.current_score}
+        currentScore={DEMO_VALIDATE_SESSION.current_score}
       />
       <div className="flex flex-1 overflow-hidden">
         <Stepper
