@@ -74,11 +74,14 @@ function RuleCard({ rule }: { rule: PerRuleResult }) {
   const hasError = !!rule.error
   const failed = !rule.passed && !hasError
 
-  const borderColor = hasError
-    ? 'border-l-warning-deep'
+  // Card chrome matches the Rules-stage approved/denied pattern: full border
+  // + soft ring glow keyed to the result tone. Replaces the previous
+  // single-side `border-l-{tone}-deep` accent for visual consistency.
+  const cardChrome = hasError
+    ? 'border-warning ring-1 ring-warning/40'
     : failed
-      ? 'border-l-danger-deep'
-      : 'border-l-success-deep'
+      ? 'border-danger ring-1 ring-danger/40'
+      : 'border-success ring-1 ring-success/40'
 
   const resultTone: StatusTone = hasError ? 'warning' : failed ? 'danger' : 'success'
   const resultLabel = hasError
@@ -89,7 +92,7 @@ function RuleCard({ rule }: { rule: PerRuleResult }) {
 
   return (
     <div
-      className={`bg-surface border border-border rounded-lg p-3 border-l-2 ${borderColor}`}
+      className={`bg-surface border rounded-lg p-3 ${cardChrome}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5 min-w-0">

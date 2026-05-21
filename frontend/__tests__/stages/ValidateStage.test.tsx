@@ -222,9 +222,10 @@ describe('ValidateStage', () => {
     const chip = screen.getByText(/Failed · 6/)
     expect(chip.className).toContain('bg-danger/15')
     expect(chip.className).toContain('text-danger-deep')
-    // Card has the left-border-token accent
-    const card = container.querySelector('.border-l-danger-deep')
-    expect(card).not.toBeNull()
+    // Card chrome matches the Rules approved/denied pattern: full border +
+    // soft ring keyed to the result tone.
+    expect(container.querySelector('.border-danger')).not.toBeNull()
+    expect(container.querySelector('.ring-danger\\/40')).not.toBeNull()
     expect(screen.getByText('3.0% of rows')).toBeInTheDocument()
   })
 
@@ -248,14 +249,15 @@ describe('ValidateStage', () => {
     const chip = screen.getByText('Eval Error')
     expect(chip.className).toContain('bg-warning/15')
     expect(chip.className).toContain('text-warning-deep')
-    expect(container.querySelector('.border-l-warning-deep')).not.toBeNull()
+    expect(container.querySelector('.border-warning')).not.toBeNull()
+    expect(container.querySelector('.ring-warning\\/40')).not.toBeNull()
     const errorBlock = screen.getByText(/NameError: foo is not defined/)
     expect(errorBlock.className).toContain('bg-warning/15')
     expect(errorBlock.className).toContain('text-warning-deep')
     expect(errorBlock.className).toContain('font-mono')
   })
 
-  it('renders a Passed chip with success-deep tokens and left-border on a passed rule', () => {
+  it('renders a Passed chip with success-deep tokens and a success-bordered card', () => {
     const { container } = render(
       <ValidateStage
         session={makeSession({
@@ -275,7 +277,8 @@ describe('ValidateStage', () => {
     const chip = screen.getByText('Passed')
     expect(chip.className).toContain('bg-success/15')
     expect(chip.className).toContain('text-success-deep')
-    expect(container.querySelector('.border-l-success-deep')).not.toBeNull()
+    expect(container.querySelector('.border-success')).not.toBeNull()
+    expect(container.querySelector('.ring-success\\/40')).not.toBeNull()
   })
 
   it('renders sample failing rows for failed rules with sample_failing_rows entries', () => {
