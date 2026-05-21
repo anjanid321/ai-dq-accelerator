@@ -76,34 +76,35 @@ export default function ChipShowcasePage() {
         <Section title="Variant 1 — status (semantic-colored soft fill, no border)">
           <div className="bg-surface border border-border rounded-xl p-4 flex flex-col">
             <Row label="success">
-              <Chip variant="status" tone="success">PASSED</Chip>
-              <Chip variant="status" tone="success">COMPLETE</Chip>
+              <Chip variant="status" tone="success">Passed</Chip>
+              <Chip variant="status" tone="success">Complete</Chip>
+              <Chip variant="status" tone="success">Result</Chip>
             </Row>
             <Row label="warning">
               <Chip variant="status" tone="warning">Missing</Chip>
               <Chip variant="status" tone="warning">Constant</Chip>
-              <Chip variant="status" tone="warning">AWAITING</Chip>
-              <Chip variant="status" tone="warning">EVAL ERROR</Chip>
+              <Chip variant="status" tone="warning">Awaiting Rules</Chip>
+              <Chip variant="status" tone="warning">Eval Error</Chip>
             </Row>
             <Row label="danger">
-              <Chip variant="status" tone="danger">FAILED · 152</Chip>
+              <Chip variant="status" tone="danger">Failed · 152</Chip>
               <Chip variant="status" tone="danger">Type Mismatch</Chip>
             </Row>
             <Row label="info">
               <Chip variant="status" tone="info">High Cardinality</Chip>
               <Chip variant="status" tone="info">Duplicates</Chip>
               <Chip variant="status" tone="info">Skewness</Chip>
-              <Chip variant="status" tone="info">IN PROGRESS</Chip>
+              <Chip variant="status" tone="info">Validating</Chip>
             </Row>
             <Row label="accent-purple">
-              <Chip variant="status" tone="accent-purple">THINKING</Chip>
+              <Chip variant="status" tone="accent-purple">Thinking</Chip>
               <Chip variant="status" tone="accent-purple">Completeness</Chip>
             </Row>
             <Row label="accent-indigo">
-              <Chip variant="status" tone="accent-indigo">TOOL CALL</Chip>
+              <Chip variant="status" tone="accent-indigo">Tool Call</Chip>
             </Row>
             <Row label="neutral">
-              <Chip variant="status" tone="neutral">DONE</Chip>
+              <Chip variant="status" tone="neutral">Done</Chip>
             </Row>
           </div>
         </Section>
@@ -141,33 +142,33 @@ export default function ChipShowcasePage() {
         <Section title="Before / after — existing call sites">
           <div className="bg-surface border border-border rounded-xl p-4 flex flex-col">
 
-            <Row label="Validate result — PASSED">
+            <Row label="Validate result — Passed">
               <Before>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-success/15 text-success-deep border border-success/30">PASSED</span>
               </Before>
               <span className="text-fg-subtle text-xs">→</span>
               <After>
-                <Chip variant="status" tone="success">PASSED</Chip>
+                <Chip variant="status" tone="success">Passed</Chip>
               </After>
             </Row>
 
-            <Row label="Validate result — FAILED">
+            <Row label="Validate result — Failed">
               <Before>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-danger/15 text-danger-deep border border-danger/30">FAILED · 152</span>
               </Before>
               <span className="text-fg-subtle text-xs">→</span>
               <After>
-                <Chip variant="status" tone="danger">FAILED · 152</Chip>
+                <Chip variant="status" tone="danger">Failed · 152</Chip>
               </After>
             </Row>
 
-            <Row label="Validate result — EVAL ERROR">
+            <Row label="Validate result — Eval Error">
               <Before>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-warning/15 text-warning-deep border border-warning/30">EVAL ERROR</span>
               </Before>
               <span className="text-fg-subtle text-xs">→</span>
               <After>
-                <Chip variant="status" tone="warning">EVAL ERROR</Chip>
+                <Chip variant="status" tone="warning">Eval Error</Chip>
               </After>
             </Row>
 
@@ -191,43 +192,43 @@ export default function ChipShowcasePage() {
               </After>
             </Row>
 
-            <Row label="AI event — TOOL CALL">
+            <Row label="AI event — Tool Call">
               <Before>
                 <span className="inline-flex items-center text-[10px] font-mono font-semibold px-2 py-0.5 rounded uppercase tracking-wide bg-accent-indigo/15 text-accent-indigo-deep">TOOL CALL</span>
               </Before>
               <span className="text-fg-subtle text-xs">→</span>
               <After>
-                <Chip variant="status" tone="accent-indigo">TOOL CALL</Chip>
+                <Chip variant="status" tone="accent-indigo">Tool Call</Chip>
               </After>
             </Row>
 
-            <Row label="AI event — THINKING">
+            <Row label="AI event — Thinking">
               <Before>
                 <span className="inline-flex items-center text-[10px] font-mono font-semibold px-2 py-0.5 rounded uppercase tracking-wide bg-accent-purple/15 text-accent-purple-deep">THINKING</span>
               </Before>
               <span className="text-fg-subtle text-xs">→</span>
               <After>
-                <Chip variant="status" tone="accent-purple">THINKING</Chip>
+                <Chip variant="status" tone="accent-purple">Thinking</Chip>
               </After>
             </Row>
 
-            <Row label="AI event — RESULT">
+            <Row label="AI event — Result">
               <Before>
                 <span className="inline-flex items-center text-[10px] font-mono font-semibold px-2 py-0.5 rounded uppercase tracking-wide bg-success/15 text-success-deep">RESULT</span>
               </Before>
               <span className="text-fg-subtle text-xs">→</span>
               <After>
-                <Chip variant="status" tone="success">RESULT</Chip>
+                <Chip variant="status" tone="success">Result</Chip>
               </After>
             </Row>
 
-            <Row label="AI event — DONE">
+            <Row label="AI event — Done">
               <Before>
                 <span className="inline-flex items-center text-[10px] font-mono font-semibold px-2 py-0.5 rounded uppercase tracking-wide bg-fg-subtle/15 text-fg-muted">DONE</span>
               </Before>
               <span className="text-fg-subtle text-xs">→</span>
               <After>
-                <Chip variant="status" tone="neutral">DONE</Chip>
+                <Chip variant="status" tone="neutral">Done</Chip>
               </After>
             </Row>
 
@@ -291,28 +292,55 @@ export default function ChipShowcasePage() {
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-canvas border border-border rounded-xl p-4 flex flex-col gap-2">
               <div className="text-[10px] uppercase tracking-wider text-fg-muted font-semibold">on bg-canvas</div>
-              <Chip variant="status" tone="success">PASSED</Chip>
-              <Chip variant="status" tone="danger">FAILED · 6</Chip>
-              <Chip variant="status" tone="warning">EVAL ERROR</Chip>
+              <Chip variant="status" tone="success">Passed</Chip>
+              <Chip variant="status" tone="danger">Failed · 6</Chip>
+              <Chip variant="status" tone="warning">Eval Error</Chip>
               <Chip variant="neutral">Round 1 of 3</Chip>
               <Chip variant="neutral" value="78%">validity</Chip>
             </div>
             <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-2">
               <div className="text-[10px] uppercase tracking-wider text-fg-muted font-semibold">on bg-surface</div>
-              <Chip variant="status" tone="success">PASSED</Chip>
-              <Chip variant="status" tone="danger">FAILED · 6</Chip>
-              <Chip variant="status" tone="warning">EVAL ERROR</Chip>
+              <Chip variant="status" tone="success">Passed</Chip>
+              <Chip variant="status" tone="danger">Failed · 6</Chip>
+              <Chip variant="status" tone="warning">Eval Error</Chip>
               <Chip variant="neutral">Round 1 of 3</Chip>
               <Chip variant="neutral" value="78%">validity</Chip>
             </div>
             <div className="bg-elevated border border-border rounded-xl p-4 flex flex-col gap-2">
               <div className="text-[10px] uppercase tracking-wider text-fg-muted font-semibold">on bg-elevated</div>
-              <Chip variant="status" tone="success">PASSED</Chip>
-              <Chip variant="status" tone="danger">FAILED · 6</Chip>
-              <Chip variant="status" tone="warning">EVAL ERROR</Chip>
+              <Chip variant="status" tone="success">Passed</Chip>
+              <Chip variant="status" tone="danger">Failed · 6</Chip>
+              <Chip variant="status" tone="warning">Eval Error</Chip>
               <Chip variant="neutral">Round 1 of 3</Chip>
               <Chip variant="neutral" value="78%">validity</Chip>
             </div>
+          </div>
+        </Section>
+
+        {/* A11y summary */}
+        <Section title="WCAG AA contrast check (text on bg-{tone}/15 over the lightest surface)">
+          <div className="bg-surface border border-border rounded-xl p-4">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-fg-muted">
+                  <th className="px-2 py-1 font-semibold">Tone</th>
+                  <th className="px-2 py-1 font-semibold">Before (was)</th>
+                  <th className="px-2 py-1 font-semibold">After (now)</th>
+                  <th className="px-2 py-1 font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody className="text-fg">
+                <tr className="border-t border-border"><td className="px-2 py-1">success</td><td className="px-2 py-1 text-fg-muted">4.08–4.40</td><td className="px-2 py-1">5.80–6.26</td><td className="px-2 py-1"><Chip variant="status" tone="success">Pass</Chip></td></tr>
+                <tr className="border-t border-border"><td className="px-2 py-1">warning</td><td className="px-2 py-1 text-fg-muted">4.13–4.47</td><td className="px-2 py-1">5.83–6.31</td><td className="px-2 py-1"><Chip variant="status" tone="success">Pass</Chip></td></tr>
+                <tr className="border-t border-border"><td className="px-2 py-1">danger</td><td className="px-2 py-1 text-fg-muted">4.88–5.32</td><td className="px-2 py-1">4.88–5.32 (unchanged)</td><td className="px-2 py-1"><Chip variant="status" tone="success">Pass</Chip></td></tr>
+                <tr className="border-t border-border"><td className="px-2 py-1">info</td><td className="px-2 py-1 text-fg-muted">5.21–5.64</td><td className="px-2 py-1">5.21–5.64 (unchanged)</td><td className="px-2 py-1"><Chip variant="status" tone="success">Pass</Chip></td></tr>
+                <tr className="border-t border-border"><td className="px-2 py-1">accent-purple</td><td className="px-2 py-1 text-fg-muted">6.41–6.95</td><td className="px-2 py-1">6.41–6.95 (unchanged)</td><td className="px-2 py-1"><Chip variant="status" tone="success">Pass</Chip></td></tr>
+                <tr className="border-t border-border"><td className="px-2 py-1">accent-indigo</td><td className="px-2 py-1 text-fg-muted">7.60–8.23</td><td className="px-2 py-1">7.60–8.23 (unchanged)</td><td className="px-2 py-1"><Chip variant="status" tone="success">Pass</Chip></td></tr>
+              </tbody>
+            </table>
+            <p className="text-[11px] text-fg-muted mt-3 leading-relaxed">
+              <span className="font-semibold text-fg">Fix:</span> success-deep darkened from <span className="font-mono">#15803D</span> to <span className="font-mono">#166534</span> (Tailwind success-800); warning-deep from <span className="font-mono">#B45309</span> to <span className="font-mono">#92400E</span> (amber-800). Both token shifts ripple through the whole frontend — strict improvement everywhere these tokens are used.
+            </p>
           </div>
         </Section>
       </div>

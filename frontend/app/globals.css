@@ -33,9 +33,12 @@
   --color-semantic-danger:  239 68 68;     /* #EF4444 */
   --color-semantic-info:    59 130 246;    /* #3B82F6 */
 
-  /* Semantic deep (accessible text on white surfaces) */
-  --color-semantic-success-deep: 21 128 61;   /* #15803D */
-  --color-semantic-warning-deep: 180 83 9;    /* #B45309 */
+  /* Semantic deep (accessible text on white AND on bg-{tone}/15 fills).
+     success-deep + warning-deep darkened from Tailwind-700 to -800 so the
+     soft-fill chip palette clears WCAG AA 4.5:1 on every workspace surface
+     (bg-canvas / bg-surface / bg-elevated). Previously sat at 4.08–4.47. */
+  --color-semantic-success-deep: 22 101 52;   /* #166534 (was #15803D / success-700) */
+  --color-semantic-warning-deep: 146 64 14;   /* #92400E (was #B45309 / amber-700) */
   --color-semantic-danger-deep:  185 28 28;   /* #B91C1C */
   --color-semantic-info-deep:    29 78 216;   /* #1D4ED8 */
 
