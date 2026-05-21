@@ -1,9 +1,9 @@
 // frontend/app/demo/_fixtures/mock-session.ts
 //
-// Frozen fixtures used by the /demo route to render the 4 Round-2 redesigned
-// stages (Load, Profile, Explore, Rules) without a backend. The data is
-// engineered to be visually rich enough to exercise every chip palette and
-// decision affordance the designs introduce.
+// Frozen fixtures used by the /demo route to render the Round-2 redesigned
+// stages (Load, Profile, Explore, Rules, Validate) without a backend. The
+// data is engineered to be visually rich enough to exercise every chip
+// palette and decision affordance the designs introduce.
 
 import type { SessionState, Rule, SessionListEntry, PerRuleResult, ValidationResults } from '@/lib/types'
 import type { AIEvent } from '@/hooks/useAIStream'
