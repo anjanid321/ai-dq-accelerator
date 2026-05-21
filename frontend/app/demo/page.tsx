@@ -18,6 +18,7 @@ import { ExplorationStage } from '@/components/stages/ExplorationStage'
 import { RulesStage } from '@/components/stages/RulesStage'
 import { SessionCard } from '@/components/sessions/SessionCard'
 import { SessionsTopBar } from '@/components/sessions/SessionsTopBar'
+import { UploadModal } from '@/components/sessions/UploadModal'
 import { stageCategory } from '@/lib/stages'
 import {
   DEMO_AI_EVENTS,
@@ -75,6 +76,7 @@ function DemoBanner({ onBack }: { onBack?: () => void }) {
 }
 
 function SessionsList({ onOpen }: { onOpen: (id: string) => void }) {
+  const [showUpload, setShowUpload] = useState(false)
   const grouped = useMemo(() => {
     const inProgress = DEMO_SESSIONS_LIST.filter((s) => stageCategory(s.stage) !== 'complete')
     const complete = DEMO_SESSIONS_LIST.filter((s) => stageCategory(s.stage) === 'complete')
@@ -84,7 +86,7 @@ function SessionsList({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className="min-h-screen flex flex-col">
       <DemoBanner />
-      <SessionsTopBar onNewSession={() => { /* upload flow disabled in demo */ }} />
+      <SessionsTopBar onNewSession={() => setShowUpload(true)} />
       <div className="flex-1 bg-canvas p-6 flex flex-col gap-5">
         {grouped.inProgress.length > 0 && (
           <section className="flex flex-col gap-3">
@@ -124,6 +126,14 @@ function SessionsList({ onOpen }: { onOpen: (id: string) => void }) {
           </section>
         )}
       </div>
+
+      {showUpload && (
+        <UploadModal
+          demoMode
+          onCreated={() => setShowUpload(false)}
+          onClose={() => setShowUpload(false)}
+        />
+      )}
     </div>
   )
 }
