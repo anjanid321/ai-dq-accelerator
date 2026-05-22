@@ -169,7 +169,7 @@ describe('ValidateStage', () => {
     expect(screen.queryByText('validity')).toBeNull()
   })
 
-  it('sorts failures + errors before passed rules (failures first by failure_count desc)', () => {
+  it('sections rules Passed → Failed → Errored, with Failed sorted by failure_count desc', () => {
     render(
       <ValidateStage
         session={makeSession({
@@ -195,11 +195,35 @@ describe('ValidateStage', () => {
     )
     const columnNodes = screen.getAllByText(/^(pass_a|pass_b|fail_small|fail_big|err_col)$/)
     const order = columnNodes.map((n) => n.textContent)
-    // failures + errors first, by failure_count desc; passed at the end
-    expect(order[0]).toBe('fail_big')
-    expect(order[1]).toBe('fail_small')
-    expect(order[2]).toBe('err_col')
-    expect(order.slice(3).sort()).toEqual(['pass_a', 'pass_b'])
+    // Passed first (mock order), then Failed by failure_count desc, then Errored
+    expect(order.slice(0, 2).sort()).toEqual(['pass_a', 'pass_b'])
+    expect(order[2]).toBe('fail_big')
+    expect(order[3]).toBe('fail_small')
+    expect(order[4]).toBe('err_col')
+    // Each section's title is rendered with its count
+    expect(screen.getByTestId('passed-section')).toHaveTextContent(/Passed Rules.*·.*2/)
+    expect(screen.getByTestId('failed-section')).toHaveTextContent(/Failed Rules.*·.*2/)
+    expect(screen.getByTestId('errored-section')).toHaveTextContent(/Errored Rules.*·.*1/)
+  })
+
+  it('hides empty sections (no Failed/Errored section when every rule passed)', () => {
+    render(
+      <ValidateStage
+        session={makeSession({
+          validation_results: {
+            per_rule: [
+              makeRule({ id: 'r1', column: 'c1', passed: true }),
+              makeRule({ id: 'r2', column: 'c2', passed: true }),
+            ],
+            category_scores: {},
+            baseline_quality_score: 0,
+          },
+        })}
+      />,
+    )
+    expect(screen.getByTestId('passed-section')).toBeInTheDocument()
+    expect(screen.queryByTestId('failed-section')).toBeNull()
+    expect(screen.queryByTestId('errored-section')).toBeNull()
   })
 
   it('renders a Failed chip with danger-deep tokens and left-border on a failed rule', () => {

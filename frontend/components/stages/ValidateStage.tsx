@@ -168,16 +168,15 @@ export function ValidateStage({ session, readOnly, onContinue }: Props) {
 
   const score = session?.current_score ?? session?.baseline_quality_score ?? 0
   const baseline = session?.baseline_quality_score ?? 0
-  const errored = perRule.filter((r) => !!r.error).length
-  const passed = perRule.filter((r) => r.passed && !r.error).length
-  const failed = perRule.length - passed - errored
+  const passedRules = perRule.filter((r) => r.passed && !r.error)
+  const failedRules = perRule
+    .filter((r) => !r.passed && !r.error)
+    .sort((a, b) => b.failure_count - a.failure_count)
+  const erroredRules = perRule.filter((r) => !!r.error)
+  const passed = passedRules.length
+  const failed = failedRules.length
+  const errored = erroredRules.length
   const categoryScores = results?.category_scores ?? {}
-  const sortedRules = [...perRule].sort((a, b) => {
-    const aTop = !a.passed || !!a.error
-    const bTop = !b.passed || !!b.error
-    if (aTop !== bTop) return aTop ? -1 : 1
-    return b.failure_count - a.failure_count
-  })
 
   const showContinue = !readOnly && !!onContinue
 
@@ -230,14 +229,41 @@ export function ValidateStage({ session, readOnly, onContinue }: Props) {
         )}
       </div>
 
-      <div className="flex flex-col gap-2">
-        {sortedRules.map((rule) => (
-          <RuleCard key={rule.id} rule={rule} />
-        ))}
-      </div>
-
       <ProseSection label="✦ VALIDATION ANALYSIS" body={session?.validation_summary ?? ''} />
       <ProseSection label="✦ ANOMALY ANALYSIS" body={session?.anomaly_summary ?? ''} />
+
+      {passed > 0 && (
+        <section data-testid="passed-section" className="flex flex-col gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            Passed Rules <span className="text-fg-subtle">· {passed}</span>
+          </div>
+          {passedRules.map((rule) => (
+            <RuleCard key={rule.id} rule={rule} />
+          ))}
+        </section>
+      )}
+
+      {failed > 0 && (
+        <section data-testid="failed-section" className="flex flex-col gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            Failed Rules <span className="text-fg-subtle">· {failed}</span>
+          </div>
+          {failedRules.map((rule) => (
+            <RuleCard key={rule.id} rule={rule} />
+          ))}
+        </section>
+      )}
+
+      {errored > 0 && (
+        <section data-testid="errored-section" className="flex flex-col gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            Errored Rules <span className="text-fg-subtle">· {errored}</span>
+          </div>
+          {erroredRules.map((rule) => (
+            <RuleCard key={rule.id} rule={rule} />
+          ))}
+        </section>
+      )}
 
       {showContinue && (
         <div className="flex justify-end mt-2">
