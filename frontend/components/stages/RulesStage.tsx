@@ -136,8 +136,10 @@ export function RulesStage({ session, readOnly, demoMode }: Props) {
                 data-filter={f}
                 data-active={isActive}
                 className={[
-                  'text-xs px-2.5 py-1 rounded-md border bg-surface',
-                  isActive ? 'border-brand-primary text-fg font-semibold' : 'border-border-strong text-fg-muted',
+                  'text-xs px-2.5 py-1 rounded-md border bg-surface transition-colors',
+                  isActive
+                    ? 'border-brand-primary text-fg font-semibold hover:bg-brand-primary/5'
+                    : 'border-border-strong text-fg-muted hover:bg-elevated hover:border-fg-muted hover:text-fg',
                 ].join(' ')}
               >
                 {label}
@@ -153,10 +155,10 @@ export function RulesStage({ session, readOnly, demoMode }: Props) {
                 data-testid="select-toggle"
                 data-active={selectionMode}
                 className={[
-                  'inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium',
+                  'inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium transition-colors',
                   selectionMode
-                    ? 'bg-elevated border-fg-default text-fg-default'
-                    : 'bg-surface border-border-strong text-fg-muted',
+                    ? 'bg-elevated border-fg-default text-fg-default hover:bg-elevated/80'
+                    : 'bg-surface border-border-strong text-fg-muted hover:bg-elevated hover:border-fg-muted hover:text-fg',
                 ].join(' ')}
               >
                 <SquareCheckBig size={14} strokeWidth={2} />
@@ -166,7 +168,7 @@ export function RulesStage({ session, readOnly, demoMode }: Props) {
                 <button
                   type="button"
                   onClick={approveAll}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border bg-surface border-success text-success-deep text-[13px] font-medium"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border bg-surface border-success text-success-deep text-[13px] font-medium transition-colors hover:bg-success/10"
                 >
                   <Check size={14} strokeWidth={2} /> Approve all
                 </button>

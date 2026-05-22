@@ -43,7 +43,7 @@ export function SelectionToolbar({
         type="button"
         onClick={onBulkApprove}
         disabled={disabled}
-        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border bg-surface border-success text-success-deep text-[13px] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border bg-surface border-success text-success-deep text-[13px] font-medium transition-colors hover:bg-success/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
       >
         <Check size={14} strokeWidth={2} /> Approve {selectedCount || ''}
       </button>
@@ -51,7 +51,7 @@ export function SelectionToolbar({
         type="button"
         onClick={onBulkDeny}
         disabled={disabled}
-        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border bg-surface border-danger text-danger-deep text-[13px] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border bg-surface border-danger text-danger-deep text-[13px] font-medium transition-colors hover:bg-danger/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
       >
         <X size={14} strokeWidth={2} /> Deny {selectedCount || ''}
       </button>
@@ -59,7 +59,7 @@ export function SelectionToolbar({
         type="button"
         onClick={onBulkClear}
         disabled={disabled}
-        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border bg-surface border-border-strong text-fg-muted text-[13px] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border bg-surface border-border-strong text-fg-muted text-[13px] font-medium transition-colors hover:bg-elevated hover:border-fg-muted hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface disabled:hover:border-border-strong disabled:hover:text-fg-muted"
       >
         <RotateCcw size={14} strokeWidth={2} /> Clear {selectedCount || ''}
       </button>
