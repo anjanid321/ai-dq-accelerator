@@ -3,16 +3,16 @@
 // Persistent demo route for walking the Round 2 redesigns against frozen mock
 // data. Opens on the sessions-list screen (matches the real homepage chrome)
 // and lets you click a card to enter the workspace shell for the Round-2
-// stages (Load → Profile → Explore → Rules → Validate). No backend, no
-// polling, no API calls.
+// stages (Profile → Explore → Rules → Validate → Triage). Load is no longer
+// a stepper item — it's a banner above Profile. No backend, no polling, no
+// API calls.
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import { Check, ChevronLeft } from 'lucide-react'
 import { TopBar } from '@/components/workspace/TopBar'
-import { Stepper, type StageId } from '@/components/workspace/Stepper'
+import { Stepper, type StageDef, type StageId } from '@/components/workspace/Stepper'
 import { AIPanel } from '@/components/ai-panel/AIPanel'
-import { LoadingStage } from '@/components/stages/LoadingStage'
 import { ProfileStage } from '@/components/stages/ProfileStage'
 import { ExplorationStage } from '@/components/stages/ExplorationStage'
 import { RulesStage } from '@/components/stages/RulesStage'
@@ -34,10 +34,24 @@ import {
   DEMO_SESSIONS_LIST,
 } from './_fixtures/mock-session'
 
-const DEMO_STAGES: StageId[] = ['load', 'profile', 'explore', 'rules', 'validate', 'triage']
+const DEMO_STAGES: StageId[] = ['profile', 'explore', 'rules', 'validate', 'triage']
+
+// Stepper sidebar omits 'load' — loading is shown as a banner above the
+// Profile stage content instead of a separate clickable stage.
+const DEMO_STAGE_LIST: StageDef[] = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'explore', label: 'Explore' },
+  { id: 'rules', label: 'Rules' },
+  { id: 'validate', label: 'Validate' },
+  { id: 'triage', label: 'Triage' },
+  { id: 'plan', label: 'Plan' },
+  { id: 'transform', label: 'Transform' },
+  { id: 'scorecard', label: 'Scorecard' },
+  { id: 'pipeline', label: 'Pipeline' },
+]
 
 const WAITING_MESSAGES: Record<StageId, string | undefined> = {
-  load: 'Loading dataset…',
+  load: undefined,
   profile: 'Profiling complete',
   explore: 'Awaiting exploration review',
   rules: 'Awaiting rule decisions',
@@ -49,12 +63,33 @@ const WAITING_MESSAGES: Record<StageId, string | undefined> = {
   pipeline: undefined,
 }
 
+function LoadBanner({ status }: { status: 'loading' | 'loaded' }) {
+  if (status === 'loading') {
+    return (
+      <div className="bg-info/10 border-b border-info/30 px-4 py-2 text-xs text-info-deep flex items-center gap-2 shrink-0">
+        <div
+          role="status"
+          aria-label="Loading"
+          className="w-3 h-3 border-2 border-info-deep border-t-transparent rounded-full animate-spin shrink-0"
+        />
+        Loading your data set…
+      </div>
+    )
+  }
+  return (
+    <div className="bg-success/10 border-b border-success/30 px-4 py-2 text-xs text-success-deep flex items-center gap-2 shrink-0">
+      <Check size={14} strokeWidth={2.5} aria-hidden />
+      Data set loaded
+    </div>
+  )
+}
+
 function OutOfScopePlaceholder({ stage }: { stage: StageId }) {
   return (
     <div className="p-5 flex flex-col items-center justify-center h-full gap-3 text-center">
       <div className="text-sm font-semibold text-fg">{stage} stage not in demo scope</div>
       <p className="text-xs text-fg-muted max-w-md">
-        The /demo route covers the Round 2 redesigns shipped so far — Sessions, Load, Profile, Explore, Rules, Validate, and Triage. Later stages will land here as they're retokenized.
+        The /demo route covers the Round 2 redesigns shipped so far — Sessions, Profile, Explore, Rules, Validate, and Triage. Later stages will land here as they're retokenized.
       </p>
     </div>
   )
@@ -147,7 +182,7 @@ function SessionsList({ onOpen }: { onOpen: (id: string) => void }) {
 // `active` (real workspace pattern: current state doesn't change as the user
 // clicks back through the stepper).
 const STAGE_ORDER: StageId[] = [
-  'load', 'profile', 'explore', 'rules',
+  'profile', 'explore', 'rules',
   'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline',
 ]
 const ACTIVE_STAGE: StageId = 'triage'
@@ -163,14 +198,15 @@ function Workspace({ onBack }: { onBack: () => void }) {
 
   function renderStage() {
     switch (viewingStage) {
-      case 'load':
-        return <LoadingStage />
       case 'profile':
         return (
-          <ProfileStage
-            session={DEMO_PROFILE_SESSION}
-            onContinue={() => setViewingStage('explore')}
-          />
+          <>
+            <LoadBanner status="loaded" />
+            <ProfileStage
+              session={DEMO_PROFILE_SESSION}
+              onContinue={() => setViewingStage('explore')}
+            />
+          </>
         )
       case 'explore':
         return (
@@ -209,6 +245,7 @@ function Workspace({ onBack }: { onBack: () => void }) {
           viewingStage={viewingStage}
           onStageClick={(s) => setViewingStage(s)}
           activeSubStatus={WAITING_MESSAGES[active]}
+          stages={DEMO_STAGE_LIST}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
           {isPastStage && (
