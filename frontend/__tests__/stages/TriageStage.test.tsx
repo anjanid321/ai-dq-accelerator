@@ -1,5 +1,5 @@
 // frontend/__tests__/stages/TriageStage.test.tsx
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TriageStage } from '@/components/stages/TriageStage'
 import type { SessionState, TriageClassification, TriageResult } from '@/lib/types'
