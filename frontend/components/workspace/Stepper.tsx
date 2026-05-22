@@ -3,7 +3,12 @@ import { Check } from 'lucide-react'
 
 export type StageId = 'load' | 'profile' | 'explore' | 'rules' | 'validate' | 'triage' | 'plan' | 'transform' | 'scorecard' | 'pipeline'
 
-const STAGES: { id: StageId; label: string }[] = [
+export interface StageDef {
+  id: StageId
+  label: string
+}
+
+const DEFAULT_STAGES: StageDef[] = [
   { id: 'load', label: 'Load' },
   { id: 'profile', label: 'Profile' },
   { id: 'explore', label: 'Explore' },
@@ -22,6 +27,7 @@ interface Props {
   viewingStage: StageId
   onStageClick: (stage: StageId) => void
   activeSubStatus?: string
+  stages?: StageDef[]
 }
 
 type CircleState = 'default' | 'active' | 'done' | 'locked'
@@ -54,7 +60,8 @@ function StageCircle({ state }: { state: CircleState }) {
   )
 }
 
-export function Stepper({ activeStage, completedStages, viewingStage, onStageClick, activeSubStatus }: Props) {
+export function Stepper({ activeStage, completedStages, viewingStage, onStageClick, activeSubStatus, stages }: Props) {
+  const stagesToRender = stages ?? DEFAULT_STAGES
   return (
     <div
       className="bg-surface border-r border-border shrink-0 overflow-y-auto py-3"
@@ -62,7 +69,7 @@ export function Stepper({ activeStage, completedStages, viewingStage, onStageCli
     >
       {/* Outer container — paddingLeft 14 + row p-1.5 = 20px circle x-position */}
       <div className="relative" style={{ paddingLeft: 14, paddingRight: 14 }}>
-        {STAGES.map((s, i) => {
+        {stagesToRender.map((s, i) => {
           const done = completedStages.includes(s.id)
           const active = s.id === activeStage
           const viewing = s.id === viewingStage
@@ -71,7 +78,7 @@ export function Stepper({ activeStage, completedStages, viewingStage, onStageCli
           const circleState: CircleState = done ? 'done' : active ? 'active' : 'locked'
 
           // Connector color: success if this stage is done AND next stage is done-or-active, else border-strong
-          const nextS = STAGES[i + 1]
+          const nextS = stagesToRender[i + 1]
           const nextDone = nextS ? completedStages.includes(nextS.id) : false
           const nextActive = nextS ? nextS.id === activeStage : false
           const connectorSuccess = done && (nextDone || nextActive)
@@ -102,7 +109,7 @@ export function Stepper({ activeStage, completedStages, viewingStage, onStageCli
 
               {/* Connector between this row and the next.
                   Position: container paddingLeft 14 + row p-1.5 (6) + circle half-width 9 − stroke half 0.75 = 28.25px */}
-              {i < STAGES.length - 1 && (
+              {i < stagesToRender.length - 1 && (
                 <div
                   className={`${connectorSuccess ? 'bg-success' : 'bg-border-strong'}`}
                   style={{
