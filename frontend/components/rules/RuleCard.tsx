@@ -42,11 +42,11 @@ function decisionButton({
   onClick: () => void
 }) {
   const baseIdle = variant === 'success'
-    ? 'bg-surface border-success text-success-deep'
-    : 'bg-surface border-danger text-danger-deep'
+    ? 'bg-surface border-success text-success-deep hover:bg-success/10'
+    : 'bg-surface border-danger text-danger-deep hover:bg-danger/10'
   const baseActive = variant === 'success'
-    ? 'bg-success-deep border-success-deep text-on-brand'
-    : 'bg-danger-deep border-danger-deep text-on-brand'
+    ? 'bg-success-deep border-success-deep text-on-brand hover:bg-success'
+    : 'bg-danger-deep border-danger-deep text-on-brand hover:bg-danger'
   return (
     <button
       type="button"
@@ -54,7 +54,7 @@ function decisionButton({
       data-decision={variant}
       data-active={active}
       className={[
-        'inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium',
+        'inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium transition-colors',
         active ? baseActive : baseIdle,
       ].join(' ')}
     >
@@ -149,7 +149,7 @@ export function RuleCard({
           <button
             type="button"
             onClick={onEditOpen}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium bg-surface border-border-strong text-fg-muted"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border text-[13px] font-medium bg-surface border-border-strong text-fg-muted transition-colors hover:bg-elevated hover:border-fg-muted hover:text-fg"
           >
             <Pencil size={14} strokeWidth={2} />
             Edit
