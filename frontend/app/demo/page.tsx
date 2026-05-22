@@ -9,7 +9,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, ChevronLeft } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { TopBar } from '@/components/workspace/TopBar'
 import { Stepper, type StageDef, type StageId } from '@/components/workspace/Stepper'
 import { AIPanel } from '@/components/ai-panel/AIPanel'
@@ -61,27 +61,6 @@ const WAITING_MESSAGES: Record<StageId, string | undefined> = {
   transform: undefined,
   scorecard: undefined,
   pipeline: undefined,
-}
-
-function LoadBanner({ status }: { status: 'loading' | 'loaded' }) {
-  if (status === 'loading') {
-    return (
-      <div className="bg-info/10 border-b border-info/30 px-4 py-2 text-xs text-info-deep flex items-center gap-2 shrink-0">
-        <div
-          role="status"
-          aria-label="Loading"
-          className="w-3 h-3 border-2 border-info-deep border-t-transparent rounded-full animate-spin shrink-0"
-        />
-        Loading dataset…
-      </div>
-    )
-  }
-  return (
-    <div className="bg-success/10 border-b border-success/30 px-4 py-2 text-xs text-success-deep flex items-center gap-2 shrink-0">
-      <Check size={14} strokeWidth={2.5} aria-hidden />
-      Dataset loaded
-    </div>
-  )
 }
 
 function OutOfScopePlaceholder({ stage }: { stage: StageId }) {
@@ -243,6 +222,7 @@ function Workspace({ onBack }: { onBack: () => void }) {
           onStageClick={(s) => setViewingStage(s)}
           activeSubStatus={WAITING_MESSAGES[active]}
           stages={DEMO_STAGE_LIST}
+          loadStatus="loaded"
         />
         <div className="flex-1 flex flex-col overflow-hidden">
           {isPastStage && (
@@ -253,7 +233,6 @@ function Workspace({ onBack }: { onBack: () => void }) {
               </button>
             </div>
           )}
-          {viewingStage === 'profile' && <LoadBanner status="loaded" />}
           <div className="flex-1 overflow-y-auto">{renderStage()}</div>
         </div>
         <AIPanel

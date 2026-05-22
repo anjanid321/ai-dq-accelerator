@@ -28,9 +28,44 @@ interface Props {
   onStageClick: (stage: StageId) => void
   activeSubStatus?: string
   stages?: StageDef[]
+  /**
+   * When set, prepends a non-clickable status row to the top of the stepper
+   * for the dataset-load step. 'loading' shows an orange spinner with bold
+   * "Loading your dataset…" label; 'loaded' shows a green check with
+   * "Dataset Loaded" label. The connector below it follows the regular
+   * done-into-active green / locked-grey rules.
+   */
+  loadStatus?: 'loading' | 'loaded'
 }
 
 type CircleState = 'default' | 'active' | 'done' | 'locked'
+
+function LoadInfoRow({ status }: { status: 'loading' | 'loaded' }) {
+  if (status === 'loading') {
+    return (
+      <div className="relative flex items-center gap-3 p-1.5 rounded-md">
+        <div
+          role="status"
+          aria-label="Loading"
+          className="w-[18px] h-[18px] border-2 border-brand-primary border-t-transparent rounded-full animate-spin shrink-0"
+        />
+        <span className="text-[13px] leading-none text-fg font-semibold">
+          Loading your dataset…
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div className="relative flex items-center gap-3 p-1.5 rounded-md">
+      <div className="w-[18px] h-[18px] rounded-full bg-success shrink-0 flex items-center justify-center text-fg-inverse">
+        <Check size={10} strokeWidth={2.5} />
+      </div>
+      <span className="text-[13px] leading-none text-fg">
+        Dataset Loaded
+      </span>
+    </div>
+  )
+}
 
 function StageCircle({ state }: { state: CircleState }) {
   if (state === 'active') {
@@ -60,8 +95,16 @@ function StageCircle({ state }: { state: CircleState }) {
   )
 }
 
-export function Stepper({ activeStage, completedStages, viewingStage, onStageClick, activeSubStatus, stages }: Props) {
+export function Stepper({ activeStage, completedStages, viewingStage, onStageClick, activeSubStatus, stages, loadStatus }: Props) {
   const stagesToRender = stages ?? DEFAULT_STAGES
+  // Connector below the LoadInfoRow goes green when the dataset is loaded AND
+  // the first stage is already active or done (mirrors the per-stage connector
+  // rule below).
+  const firstStage = stagesToRender[0]
+  const firstStageDone = firstStage ? completedStages.includes(firstStage.id) : false
+  const firstStageActive = firstStage ? firstStage.id === activeStage : false
+  const loadConnectorSuccess =
+    loadStatus === 'loaded' && (firstStageDone || firstStageActive)
   return (
     <div
       className="bg-surface border-r border-border shrink-0 overflow-y-auto py-3"
@@ -69,6 +112,21 @@ export function Stepper({ activeStage, completedStages, viewingStage, onStageCli
     >
       {/* Outer container — paddingLeft 14 + row p-1.5 = 20px circle x-position */}
       <div className="relative" style={{ paddingLeft: 14, paddingRight: 14 }}>
+        {loadStatus && (
+          <>
+            <LoadInfoRow status={loadStatus} />
+            <div
+              className={`${loadConnectorSuccess ? 'bg-success' : 'bg-border-strong'}`}
+              style={{
+                position: 'relative',
+                left: 14 - 0.75,
+                width: '1.5px',
+                height: 12,
+                margin: '2px 0',
+              }}
+            />
+          </>
+        )}
         {stagesToRender.map((s, i) => {
           const done = completedStages.includes(s.id)
           const active = s.id === activeStage
