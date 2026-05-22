@@ -91,20 +91,10 @@ export function SessionCard({ entry, onOpen, onDeleted }: Props) {
       className="group relative bg-surface border border-border rounded-lg p-4 cursor-pointer hover:border-fg-muted hover:shadow-md transition-all flex flex-col gap-3"
       onClick={onOpen}
     >
-      <div className="flex items-start gap-2">
-        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-          <div className="text-sm font-semibold text-fg truncate">{entry.filename}</div>
-          <div className="text-xs text-fg-muted">{new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-          {detail && (
-            <div data-testid="stage-detail" className="text-[11px] font-medium text-fg-subtle">
-              {detail}
-            </div>
-          )}
-        </div>
+      <div className="flex items-center justify-between gap-2">
         <Chip
           variant="status"
           tone={CATEGORY_TONE[category]}
-          className="ml-auto shrink-0"
         >
           <span data-stage-category={category}>{STAGE_LABELS[entry.stage]}</span>
         </Chip>
@@ -142,8 +132,18 @@ export function SessionCard({ entry, onOpen, onDeleted }: Props) {
         </div>
       </div>
 
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <div className="text-sm font-semibold text-fg truncate">{entry.filename}</div>
+        <div className="text-xs text-fg-muted">{new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+        {detail && (
+          <div data-testid="stage-detail" className="text-[11px] font-medium text-fg-subtle">
+            {detail}
+          </div>
+        )}
+      </div>
+
       {score > 0 && (
-        <div data-testid="score-block" data-score-variant={variant} className="flex flex-col gap-1.5">
+        <div data-testid="score-block" data-score-variant={variant} className="flex flex-col gap-1.5 mt-auto">
           <div className="flex items-baseline">
             <span className="text-xs text-fg-muted">Quality Score</span>
             <span className="flex-1" />
