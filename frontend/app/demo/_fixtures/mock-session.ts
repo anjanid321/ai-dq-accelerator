@@ -5,7 +5,15 @@
 // data is engineered to be visually rich enough to exercise every chip
 // palette and decision affordance the designs introduce.
 
-import type { SessionState, Rule, SessionListEntry, PerRuleResult, ValidationResults } from '@/lib/types'
+import type {
+  SessionState,
+  Rule,
+  SessionListEntry,
+  PerRuleResult,
+  ValidationResults,
+  TriageResult,
+  TriageClassification,
+} from '@/lib/types'
 import type { AIEvent } from '@/hooks/useAIStream'
 import type { ExplorationState } from '@/components/stages/ExplorationStage'
 
@@ -317,6 +325,124 @@ export const DEMO_VALIDATE_SESSION: SessionState = {
   anomaly_summary:
     'Two applications with credit_score < 600 are marked APPROVED — worth surfacing to the underwriter before the rules pipeline locks in. The cross-column pattern is unusual enough to be either an exception path or an intake mistake, not a data-quality issue per se.',
   validation_results: DEMO_VALIDATION_RESULTS,
+}
+
+// Triage fixture exercises all four classifications + a mix of confidences.
+// Mirrors the failing rules from DEMO_VALIDATE_SESSION (phone-format,
+// email-regex, future application_date, the sandboxed custom rule, plus
+// two synthetic threshold_too_strict / unfixable entries to round out
+// the four-classification coverage).
+const DEMO_TRIAGE_CLASSIFICATIONS: TriageClassification[] = [
+  {
+    rule_id: 'r6',
+    check: 'regex(email)',
+    column: 'email',
+    classification: 'threshold_too_strict',
+    proposed_threshold: 0.97,
+    proposed_remove: false,
+    reason:
+      '6 of 200 emails fail strict RFC 5322 regex but match a relaxed pattern. Raising the threshold from 95% to 97% would let these pass without dropping data quality.',
+    confidence: 'high',
+  },
+  {
+    rule_id: 'r5',
+    check: 'max_date(today)',
+    column: 'application_date',
+    classification: 'threshold_too_strict',
+    proposed_threshold: 0.99,
+    proposed_remove: false,
+    reason:
+      '3 application dates are in the future, likely typos. The AI suggests accepting these as outliers via a 99% threshold rather than blocking the pipeline.',
+    confidence: 'medium',
+  },
+  {
+    rule_id: 'r7',
+    check: 'format((XXX) XXX-XXXX)',
+    column: 'phone',
+    classification: 'transform_fixable',
+    proposed_threshold: undefined,
+    proposed_remove: false,
+    reason:
+      '152 phone numbers fail the strict format check, but each row matches one of 5 alternate formats. A normalization transform can fix every row automatically — no rule change needed.',
+    confidence: 'high',
+  },
+  {
+    rule_id: 'r9-eval',
+    check: 'custom_code(format_check)',
+    column: 'co_signer_ssn',
+    classification: 'eval_error',
+    proposed_threshold: undefined,
+    proposed_remove: true,
+    reason:
+      'Custom SSN-format check failed to compile against the sandboxed environment (NameError on `re` import). The rule cannot be evaluated and must be rewritten or removed.',
+    confidence: 'medium',
+  },
+  {
+    rule_id: 'r10-synth',
+    check: 'not_null',
+    column: 'co_signer_phone',
+    classification: 'unfixable',
+    proposed_threshold: undefined,
+    proposed_remove: true,
+    reason:
+      'co_signer_phone is null in 87% of rows because most loans don\'t have co-signers. The column is correctly missing — this is not a data quality issue.',
+    confidence: 'high',
+  },
+  {
+    rule_id: 'r11-synth',
+    check: 'unique',
+    column: 'middle_initial',
+    classification: 'unfixable',
+    proposed_threshold: undefined,
+    proposed_remove: true,
+    reason:
+      'middle_initial is intentionally non-unique (1-letter values repeat naturally). The uniqueness rule was inferred incorrectly during profiling.',
+    confidence: 'high',
+  },
+  {
+    rule_id: 'r12-synth',
+    check: 'range(300, 850)',
+    column: 'credit_score',
+    classification: 'threshold_too_strict',
+    proposed_threshold: 0.995,
+    proposed_remove: false,
+    reason:
+      '1 legacy row has credit_score=0 from a pre-FICO import. Accepting at 99.5% tolerance keeps the rule strict for new data while letting the historical row through.',
+    confidence: 'low',
+  },
+  {
+    rule_id: 'r13-synth',
+    check: 'custom_code(domain_check)',
+    column: 'employer_domain',
+    classification: 'transform_fixable',
+    proposed_threshold: undefined,
+    proposed_remove: false,
+    reason:
+      'employer_domain values include both bare hostnames ("ibm.com") and protocol-prefixed URLs ("https://ibm.com"). A normalization step can canonicalize them automatically.',
+    confidence: 'high',
+  },
+]
+
+const DEMO_TRIAGE_RESULT: TriageResult = {
+  classifications: DEMO_TRIAGE_CLASSIFICATIONS,
+  summary: {
+    transform_fixable: 2,
+    threshold_too_strict: 3,
+    unfixable: 2,
+    eval_error: 1,
+  },
+}
+
+export const DEMO_TRIAGE_SESSION: SessionState = {
+  ...baseSession('AWAITING_TRIAGE_APPROVAL'),
+  ai_summary: DEMO_AI_SUMMARY,
+  suggested_rules: DEMO_RULES,
+  baseline_quality_score: 0.78,
+  current_score: 0.82,
+  validation_summary: DEMO_VALIDATE_SESSION.validation_summary,
+  anomaly_summary: DEMO_VALIDATE_SESSION.anomaly_summary,
+  validation_results: DEMO_VALIDATION_RESULTS,
+  triage_result: DEMO_TRIAGE_RESULT,
 }
 
 export const DEMO_EXPLORE_STATE: ExplorationState = {
