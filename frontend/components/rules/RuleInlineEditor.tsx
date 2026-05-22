@@ -39,6 +39,18 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
       <div className="text-[10px] uppercase tracking-widest text-fg-default">Modify Rule</div>
 
       <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <label className="text-[10px] text-fg-muted">Threshold (0–1)</label>
+          <input
+            className={inputClass}
+            type="number"
+            step="0.01"
+            min="0"
+            max="1"
+            defaultValue={edit.threshold ?? rule.threshold}
+            onChange={(e) => onChange({ threshold: Number(e.target.value) })}
+          />
+        </div>
         {rule.min !== undefined && (
           <div>
             <label className="text-[10px] text-fg-muted">Min</label>
@@ -66,6 +78,16 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
               className={inputClass}
               defaultValue={edit.pattern ?? rule.pattern}
               onChange={(e) => onChange({ pattern: e.target.value })}
+            />
+          </div>
+        )}
+        {rule.format !== undefined && (
+          <div className="col-span-2">
+            <label className="text-[10px] text-fg-muted">Format</label>
+            <input
+              className={inputClass}
+              defaultValue={edit.format ?? rule.format}
+              onChange={(e) => onChange({ format: e.target.value })}
             />
           </div>
         )}
@@ -109,7 +131,7 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
       <div className="flex justify-end gap-2">
         <button
           type="button"
-          className="text-xs text-fg-muted border border-border-strong bg-surface px-4 py-2 rounded-md"
+          className="text-xs text-fg-muted border border-border-strong bg-surface px-4 py-2 rounded-md transition-colors hover:bg-elevated hover:border-fg-muted hover:text-fg"
           onClick={onCancel}
         >
           Cancel
@@ -117,7 +139,7 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
         <button
           type="button"
           disabled={!canSave}
-          className="text-xs font-semibold bg-brand-accent text-on-brand px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+          className="text-xs font-semibold bg-brand-accent text-on-brand px-4 py-2 rounded-md transition-all hover:bg-brand-accent/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brand-accent disabled:hover:shadow-none"
           onClick={onSaveAndApprove}
         >
           Save & Approve
