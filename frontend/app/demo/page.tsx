@@ -72,14 +72,14 @@ function LoadBanner({ status }: { status: 'loading' | 'loaded' }) {
           aria-label="Loading"
           className="w-3 h-3 border-2 border-info-deep border-t-transparent rounded-full animate-spin shrink-0"
         />
-        Loading your data set…
+        Loading dataset…
       </div>
     )
   }
   return (
     <div className="bg-success/10 border-b border-success/30 px-4 py-2 text-xs text-success-deep flex items-center gap-2 shrink-0">
       <Check size={14} strokeWidth={2.5} aria-hidden />
-      Data set loaded
+      Dataset loaded
     </div>
   )
 }
@@ -200,13 +200,10 @@ function Workspace({ onBack }: { onBack: () => void }) {
     switch (viewingStage) {
       case 'profile':
         return (
-          <>
-            <LoadBanner status="loaded" />
-            <ProfileStage
-              session={DEMO_PROFILE_SESSION}
-              onContinue={() => setViewingStage('explore')}
-            />
-          </>
+          <ProfileStage
+            session={DEMO_PROFILE_SESSION}
+            onContinue={() => setViewingStage('explore')}
+          />
         )
       case 'explore':
         return (
@@ -256,6 +253,7 @@ function Workspace({ onBack }: { onBack: () => void }) {
               </button>
             </div>
           )}
+          {viewingStage === 'profile' && <LoadBanner status="loaded" />}
           <div className="flex-1 overflow-y-auto">{renderStage()}</div>
         </div>
         <AIPanel
