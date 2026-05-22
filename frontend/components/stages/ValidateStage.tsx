@@ -1,13 +1,19 @@
 // frontend/components/stages/ValidateStage.tsx
 'use client'
+import { ArrowRight } from 'lucide-react'
 import type { SessionState, PerRuleResult } from '@/lib/types'
 import { Chip, type StatusTone } from '@/components/ui/Chip'
 
 interface Props {
   session: SessionState | null
-  // Accepted for source-compat with SnapshotStageView; unused — Validate has
-  // no human actions to suppress.
   readOnly?: boolean
+  /**
+   * When provided (and !readOnly), renders a "Continue to Triage" CTA at the
+   * bottom of the stage. The live app's backend auto-transitions VALIDATING →
+   * TRIAGING without user input, so the live page can omit this prop. The
+   * /demo route wires it to navigate the walkthrough.
+   */
+  onContinue?: () => void
 }
 
 function CategoryPill({ label, score }: { label: string; score: number }) {
@@ -139,13 +145,13 @@ function ProseSection({ label, body }: { label: string; body: string }) {
   )
 }
 
-export function ValidateStage({ session }: Props) {
+export function ValidateStage({ session, readOnly, onContinue }: Props) {
   const results = session?.validation_results
   const perRule = results?.per_rule
 
   if (!perRule?.length) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-5">
         <div className="bg-surface border border-border rounded-xl p-6 flex items-center gap-3">
           <div
             role="status"
@@ -173,8 +179,10 @@ export function ValidateStage({ session }: Props) {
     return b.failure_count - a.failure_count
   })
 
+  const showContinue = !readOnly && !!onContinue
+
   return (
-    <div className="p-6 flex flex-col gap-6 max-w-3xl mx-auto">
+    <div className="p-5 flex flex-col gap-6">
       <div className="flex flex-col gap-0.5">
         <h1 className="text-base font-bold text-fg">Validation Results</h1>
         <p className="text-xs text-fg-muted">
@@ -230,6 +238,20 @@ export function ValidateStage({ session }: Props) {
 
       <ProseSection label="✦ VALIDATION ANALYSIS" body={session?.validation_summary ?? ''} />
       <ProseSection label="✦ ANOMALY ANALYSIS" body={session?.anomaly_summary ?? ''} />
+
+      {showContinue && (
+        <div className="flex justify-end mt-2">
+          <button
+            type="button"
+            onClick={onContinue}
+            data-testid="validate-continue"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-on-brand text-[13px] font-semibold px-4 py-2 rounded-md hover:bg-brand-accent/90 hover:shadow-md transition-all"
+          >
+            Continue to Triage
+            <ArrowRight size={14} strokeWidth={2} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

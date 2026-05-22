@@ -195,7 +195,12 @@ function Workspace({ onBack }: { onBack: () => void }) {
       case 'rules':
         return <RulesStage session={DEMO_RULES_SESSION} demoMode />
       case 'validate':
-        return <ValidateStage session={DEMO_VALIDATE_SESSION} />
+        return (
+          <ValidateStage
+            session={DEMO_VALIDATE_SESSION}
+            onContinue={() => setViewingStage('triage')}
+          />
+        )
       case 'triage':
         return <TriageStage session={DEMO_TRIAGE_SESSION} />
       default:
