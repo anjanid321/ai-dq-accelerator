@@ -11,11 +11,12 @@ import { DecisionFooter } from '@/components/rules/DecisionFooter'
 interface Props {
   session: SessionState
   readOnly?: boolean
+  demoMode?: boolean
 }
 
 type Filter = 'all' | (typeof DIMENSION_IDS)[number]
 
-export function RulesStage({ session, readOnly }: Props) {
+export function RulesStage({ session, readOnly, demoMode }: Props) {
   const rules = session.suggested_rules as Rule[]
 
   const [decisions, setDecisions] = useState<Record<string, Decision>>(
@@ -102,6 +103,10 @@ export function RulesStage({ session, readOnly }: Props) {
       })
     const rejectedIds = rules.filter((r) => decisions[r.id] === 'denied').map((r) => r.id)
     try {
+      if (demoMode) {
+        await new Promise((r) => setTimeout(r, 600))
+        return
+      }
       await approveRules(session.session_id, approvedRules, rejectedIds)
     } finally {
       setSubmitting(false)

@@ -181,7 +181,7 @@ function Workspace({ onBack }: { onBack: () => void }) {
           />
         )
       case 'rules':
-        return <RulesStage session={DEMO_RULES_SESSION} readOnly />
+        return <RulesStage session={DEMO_RULES_SESSION} demoMode />
       case 'validate':
         return <ValidateStage session={DEMO_VALIDATE_SESSION} />
       case 'triage':
