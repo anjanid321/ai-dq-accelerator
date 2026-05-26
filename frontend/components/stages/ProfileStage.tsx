@@ -38,7 +38,7 @@ export function ProfileStage({ session, onContinue, readOnly }: Props) {
       {/* AI Summary card — populated or loading */}
       {session.ai_summary ? (
         <div className="bg-accent-purple/15 border border-accent-purple/30 rounded-xl pt-3.5 px-4 pb-4 flex flex-col gap-1.5">
-          <div className="text-[10px] font-semibold uppercase tracking-widest text-accent-purple-deep">
+          <div className="text-xs font-semibold uppercase tracking-widest text-accent-purple-deep">
             ✦ AI SUMMARY
           </div>
           <p className="text-xs text-accent-purple-deep leading-relaxed">

@@ -62,7 +62,7 @@ const SCORE_TONE_CLASSES: Record<ScoreTone, string> = {
 }
 
 const BASE_STATUS_OR_NEUTRAL =
-  'inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold'
+  'inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold'
 const BASE_NEUTRAL_CHROME = 'bg-elevated border border-border text-fg-muted'
 const BASE_SCORE =
   'inline-flex items-center bg-surface border rounded-full px-2.5 py-0.5 text-xs font-semibold'

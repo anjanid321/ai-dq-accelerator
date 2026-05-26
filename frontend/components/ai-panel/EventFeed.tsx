@@ -16,9 +16,9 @@ interface CardProps {
 }
 
 const cardBase = 'bg-surface rounded-lg p-3 flex flex-col gap-1.5 border min-w-0 overflow-hidden'
-const bodyClass = 'text-[11px] font-mono text-fg-muted leading-relaxed whitespace-pre-wrap break-all'
-const toolNameClass = 'text-[10px] font-mono text-fg truncate min-w-0'
-const timestampClass = 'text-[10px] text-fg-muted ml-auto shrink-0 tabular-nums'
+const bodyClass = 'text-xs font-mono text-fg-muted leading-relaxed whitespace-pre-wrap break-all'
+const toolNameClass = 'text-xs font-mono text-fg truncate min-w-0'
+const timestampClass = 'text-xs text-fg-muted ml-auto shrink-0 tabular-nums'
 
 function ToolCallCard({ event: ev, highlighted }: CardProps) {
   const body = JSON.stringify(
@@ -63,7 +63,7 @@ function ThinkingCard({ event: ev, highlighted }: CardProps) {
         <Chip variant="status" tone="accent-purple" className="shrink-0">Thinking</Chip>
         {ev.ts != null && <span className={timestampClass}>{formatTimestamp(ev.ts)}</span>}
       </div>
-      {text && <p className="text-[11px] italic text-fg-muted leading-relaxed break-words">{text}</p>}
+      {text && <p className="text-xs italic text-fg-muted leading-relaxed break-words">{text}</p>}
     </div>
   )
 }

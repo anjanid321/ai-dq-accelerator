@@ -136,7 +136,7 @@ export function SessionCard({ entry, onOpen, onDeleted }: Props) {
         <div className="text-sm font-semibold text-fg truncate">{entry.filename}</div>
         <div className="text-xs text-fg-muted">{new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
         {detail && (
-          <div data-testid="stage-detail" className="text-[11px] font-medium text-fg-subtle">
+          <div data-testid="stage-detail" className="text-xs font-medium text-fg-subtle">
             {detail}
           </div>
         )}
@@ -163,7 +163,7 @@ export function SessionCard({ entry, onOpen, onDeleted }: Props) {
           href={getPipelineDownloadUrl(entry.id)}
           download
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center justify-center gap-1.5 w-full bg-surface border border-border-strong text-fg-muted text-[11px] font-medium px-2 py-1.5 rounded-md hover:bg-elevated hover:border-fg-muted hover:text-fg transition-colors"
+          className="inline-flex items-center justify-center gap-1.5 w-full bg-surface border border-border-strong text-fg-muted text-xs font-medium px-2 py-1.5 rounded-md hover:bg-elevated hover:border-fg-muted hover:text-fg transition-colors"
         >
           <Download size={14} strokeWidth={2} />
           Download

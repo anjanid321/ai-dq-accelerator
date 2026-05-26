@@ -84,7 +84,7 @@ function OutOfScopePlaceholder({ stage }: { stage: StageId }) {
 
 function DemoBanner({ onBack }: { onBack?: () => void }) {
   return (
-    <div className="bg-elevated border-b border-border px-4 py-1.5 text-[11px] text-fg-muted flex items-center gap-3 shrink-0">
+    <div className="bg-elevated border-b border-border px-4 py-1.5 text-xs text-fg-muted flex items-center gap-3 shrink-0">
       {onBack && (
         <button
           type="button"

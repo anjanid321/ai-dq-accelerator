@@ -143,13 +143,13 @@ function StepCard({
         {step.targets_rules.map(r => (
           <span
             key={r}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-elevated text-fg-muted font-mono"
+            className="text-xs px-1.5 py-0.5 rounded bg-elevated text-fg-muted font-mono"
           >
             {r}
           </span>
         ))}
         {step.depends_on.length > 0 && (
-          <span className="text-[10px] text-fg-subtle">
+          <span className="text-xs text-fg-subtle">
             depends on: {step.depends_on.join(', ')}
           </span>
         )}
@@ -260,7 +260,7 @@ export function PlanReviewStage({ session, readOnly, demoMode }: Props) {
           </div>
           {transform_plan.summary && (
             <div className="bg-accent-purple/15 border border-accent-purple/30 rounded-lg p-3 flex flex-col gap-1.5">
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-accent-purple-deep">
+              <div className="text-xs font-semibold uppercase tracking-widest text-accent-purple-deep">
                 ✦ AI SUMMARY
               </div>
               <p className="text-xs text-accent-purple-deep leading-relaxed">

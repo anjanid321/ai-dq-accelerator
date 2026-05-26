@@ -178,7 +178,7 @@ export function AIPanel({ events, isStreaming, waitingMessage }: Props) {
               type="button"
               onClick={() => setView(v)}
               className={[
-                'text-[11px] px-3 py-1 rounded-md capitalize transition-colors',
+                'text-xs px-3 py-1 rounded-md capitalize transition-colors',
                 view === v
                   ? 'bg-surface text-fg border border-border'
                   : 'text-fg-muted hover:text-fg',

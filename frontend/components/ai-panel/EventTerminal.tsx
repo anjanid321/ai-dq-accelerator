@@ -36,7 +36,7 @@ export function EventTerminal({ events }: { events: AIEvent[] }) {
     <div
       ref={scrollerRef}
       data-testid="event-terminal-scroller"
-      className="relative flex-1 overflow-y-auto overflow-x-hidden p-3 font-mono text-[11px] leading-relaxed text-fg"
+      className="relative flex-1 overflow-y-auto overflow-x-hidden p-3 font-mono text-xs leading-relaxed text-fg"
     >
       {events.map((ev, i) => {
         const glyphCls = GLYPH_COLOR[ev.event] ?? 'text-fg-muted'

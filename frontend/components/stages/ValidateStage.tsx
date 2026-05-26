@@ -120,7 +120,7 @@ function RuleCard({ rule }: { rule: PerRuleResult }) {
         </div>
       </div>
       {hasError && (
-        <div className="mt-2 rounded-md bg-warning/15 border border-warning/30 px-2 py-1.5 text-[11px] font-mono text-warning-deep break-all">
+        <div className="mt-2 rounded-md bg-warning/15 border border-warning/30 px-2 py-1.5 text-xs font-mono text-warning-deep break-all">
           {rule.error}
         </div>
       )}
@@ -135,7 +135,7 @@ function ProseSection({ label, body }: { label: string; body: string }) {
   if (!body) return null
   return (
     <div className="bg-accent-purple/15 border border-accent-purple/30 rounded-xl p-4 flex flex-col gap-1.5">
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-accent-purple-deep">
+      <div className="text-xs font-semibold uppercase tracking-widest text-accent-purple-deep">
         {label}
       </div>
       <p className="text-xs text-accent-purple-deep leading-relaxed whitespace-pre-wrap">

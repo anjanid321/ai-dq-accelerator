@@ -75,11 +75,11 @@ function BeforeAfterTables({
 
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle mb-1">
+      <div className="text-xs font-semibold uppercase tracking-widest text-fg-subtle mb-1">
         Before / After{affectedRowCount != null ? ` · ${affectedRowCount} rows affected` : ''}
       </div>
       <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full text-[11px]">
+        <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border bg-elevated">
               <th className="px-2 py-1 text-left text-fg-subtle font-medium w-10"></th>
@@ -192,7 +192,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
                 {step.actual_score_delta >= 0 ? '+' : ''}
                 {(step.actual_score_delta * 100).toFixed(1)}%
               </Chip>
-              <span className="text-[11px] text-fg-subtle hidden md:inline">
+              <span className="text-xs text-fg-subtle hidden md:inline">
                 ({(step.projected_score_delta * 100).toFixed(1)}% proj)
               </span>
             </>
@@ -226,7 +226,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
         <div className="mx-3 mt-1.5 mb-3 px-4 py-3 bg-canvas rounded-md border border-border-strong flex flex-col gap-3 text-xs">
           {step.intent && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Intent
               </span>
               <p className="text-fg mt-1 leading-relaxed">{step.intent}</p>
@@ -234,7 +234,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
           )}
           {step.approach && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Approach
               </span>
               <p className="text-fg mt-1 leading-relaxed">{step.approach}</p>
@@ -242,17 +242,17 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
           )}
           {Object.keys(step.params ?? {}).length > 0 && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Params
               </span>
-              <pre className="mt-1 text-[11px] text-fg overflow-x-auto whitespace-pre-wrap break-all">
+              <pre className="mt-1 text-xs text-fg overflow-x-auto whitespace-pre-wrap break-all">
                 {JSON.stringify(step.params, null, 2)}
               </pre>
             </div>
           )}
           {step.custom_code && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Custom Code
               </span>
               <div className="mt-1 bg-surface rounded-md overflow-x-auto border border-border">
@@ -262,7 +262,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
           )}
           {step.targets_rules.length > 0 && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Targets Rules
               </span>
               <p className="font-mono text-fg mt-1">{step.targets_rules.join(', ')}</p>
@@ -487,7 +487,7 @@ function EscalationOverlay({
         {showChanges && (
           <div className="flex flex-col gap-3 border-t border-border pt-3">
             <div>
-              <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle">
+              <label className="text-xs font-semibold uppercase tracking-widest text-fg-subtle">
                 Natural Language Instruction
               </label>
               <textarea
@@ -499,7 +499,7 @@ function EscalationOverlay({
             </div>
             {!isCustomStep && originalParams && (
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle">
+                <label className="text-xs font-semibold uppercase tracking-widest text-fg-subtle">
                   Edit Params (JSON)
                 </label>
                 <textarea
@@ -511,13 +511,13 @@ function EscalationOverlay({
                   className="mt-1 w-full bg-surface border border-border-strong text-fg rounded-md px-3 py-2 text-xs font-mono resize-none h-28 focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary"
                 />
                 {paramsError && (
-                  <p className="text-[11px] text-danger-deep mt-1">{paramsError}</p>
+                  <p className="text-xs text-danger-deep mt-1">{paramsError}</p>
                 )}
               </div>
             )}
             {isCustomStep && (
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle">
+                <label className="text-xs font-semibold uppercase tracking-widest text-fg-subtle">
                   Edit Custom Code
                 </label>
                 <textarea

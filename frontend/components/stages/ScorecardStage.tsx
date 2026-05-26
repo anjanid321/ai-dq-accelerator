@@ -74,7 +74,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
         <div className="mx-4 mt-1.5 mb-3 px-4 py-3 bg-canvas rounded-md border border-border-strong flex flex-col gap-3 text-xs">
           {entry.rationale && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Rationale
               </span>
               <p className="text-fg mt-1 leading-relaxed">{entry.rationale}</p>
@@ -82,17 +82,17 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
           )}
           {Object.keys(entry.params ?? {}).length > 0 && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Params
               </span>
-              <pre className="mt-1 text-[11px] text-fg overflow-x-auto whitespace-pre-wrap break-all">
+              <pre className="mt-1 text-xs text-fg overflow-x-auto whitespace-pre-wrap break-all">
                 {JSON.stringify(entry.params, null, 2)}
               </pre>
             </div>
           )}
           {entry.custom_code && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Custom Code
               </span>
               <div className="mt-1 bg-surface rounded-md overflow-x-auto border border-border">
@@ -102,7 +102,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
           )}
           {entry.post_step_per_rule && entry.post_step_per_rule.length > 0 && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Rule State After This Step
                 <span className="ml-2 normal-case text-fg-subtle tracking-normal">
                   {entry.post_step_per_rule.filter((r) => !r.passed).length} failing /{' '}
@@ -113,7 +113,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
                 {entry.post_step_per_rule.map((rule) => (
                   <div
                     key={rule.id}
-                    className={`flex items-center gap-2 px-2 py-1 rounded text-[11px] ${
+                    className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
                       rule.passed ? 'opacity-50' : 'bg-danger/10'
                     }`}
                   >
@@ -139,10 +139,10 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
           )}
           {entry.regressions && entry.regressions.length > 0 && (
             <div>
-              <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
+              <span className="text-fg-subtle uppercase tracking-widest text-xs font-semibold">
                 Regressions
               </span>
-              <pre className="mt-1 text-[11px] text-danger-deep overflow-x-auto whitespace-pre-wrap">
+              <pre className="mt-1 text-xs text-danger-deep overflow-x-auto whitespace-pre-wrap">
                 {JSON.stringify(entry.regressions, null, 2)}
               </pre>
             </div>
@@ -189,45 +189,32 @@ export function ScorecardStage({ sessionId, data: dataProp }: Props) {
         </p>
       </div>
 
-      <div className="bg-surface border border-border rounded-xl p-5 flex items-center gap-6 flex-wrap">
-        <div className="flex items-end gap-4 shrink-0">
-          <div className="text-center">
-            <div className="text-5xl font-extrabold text-fg-muted">{baseline}%</div>
-            <div className="text-[10px] uppercase tracking-widest text-fg-subtle font-semibold mt-1">
-              Baseline
+      <div className="bg-surface border border-border rounded-xl p-5">
+        <div className="flex items-center gap-6 flex-wrap">
+          <div>
+            <div className="text-5xl font-bold text-success-deep">
+              {final}
+              <span className="text-2xl text-fg-muted">%</span>
             </div>
-          </div>
-          <ArrowRight size={20} strokeWidth={2} className="text-fg-subtle pb-3" />
-          <div className="text-center">
-            <div className="text-5xl font-extrabold text-success-deep">{final}%</div>
-            <div className="text-[10px] uppercase tracking-widest text-fg-subtle font-semibold mt-1">
-              Final
-            </div>
-          </div>
-        </div>
-        <div className="w-px h-14 bg-border shrink-0" />
-        <div className="text-center shrink-0">
-          <div className="text-3xl font-bold text-success-deep">+{delta}%</div>
-          <div className="text-[10px] uppercase tracking-widest text-fg-subtle font-semibold mt-1">
-            Improvement
-          </div>
-        </div>
-        <div className="flex-1 min-w-[220px]">
-          {[
-            { label: 'Before', pct: baseline, fill: 'bg-fg-subtle' },
-            { label: 'After', pct: final, fill: 'bg-success-deep' },
-          ].map((row) => (
-            <div key={row.label} className="flex items-center gap-2 mb-1.5">
-              <span className="text-[10px] text-fg-muted w-10 text-right">{row.label}</span>
-              <div className="flex-1 bg-elevated rounded-full h-2.5 overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${row.fill}`}
-                  style={{ width: `${row.pct}%` }}
-                />
+            {final !== baseline && (
+              <div className="text-xs text-fg-subtle mt-1">
+                baseline: {baseline}%
               </div>
-              <span className="text-[11px] text-fg-muted w-8">{row.pct}%</span>
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-1">
+              Quality Score
             </div>
-          ))}
+            <div className="text-sm text-fg-muted">
+              <span className="text-success-deep font-semibold">+{delta}% improvement</span>
+              {' · '}
+              <span className="text-success-deep font-semibold">
+                {data.rules_passing} of {data.rules_total}
+              </span>{' '}
+              rules passing
+            </div>
+          </div>
         </div>
       </div>
 
@@ -240,7 +227,7 @@ export function ScorecardStage({ sessionId, data: dataProp }: Props) {
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-surface border border-border rounded-xl p-4 text-center">
             <div className={`text-xl font-bold ${color}`}>{value}</div>
-            <div className="text-[10px] uppercase tracking-widest text-fg-subtle font-semibold mt-1">
+            <div className="text-xs uppercase tracking-widest text-fg-subtle font-semibold mt-1">
               {label}
             </div>
           </div>
@@ -249,7 +236,7 @@ export function ScorecardStage({ sessionId, data: dataProp }: Props) {
 
       {data.narrative && (
         <div className="bg-accent-purple/15 border border-accent-purple/30 rounded-xl p-4 flex flex-col gap-1.5">
-          <div className="text-[10px] font-semibold uppercase tracking-widest text-accent-purple-deep">
+          <div className="text-xs font-semibold uppercase tracking-widest text-accent-purple-deep">
             ✦ AI NARRATIVE
           </div>
           <p className="text-xs text-accent-purple-deep leading-relaxed">{data.narrative}</p>
@@ -262,7 +249,7 @@ export function ScorecardStage({ sessionId, data: dataProp }: Props) {
             Transform History
           </div>
           <div className="bg-surface border border-border rounded-xl overflow-hidden">
-            <div className="grid grid-cols-[24px_2fr_1fr_1fr_100px_24px] px-4 py-2 bg-elevated border-b border-border text-[10px] uppercase tracking-widest text-fg-subtle font-semibold gap-2 items-center">
+            <div className="grid grid-cols-[24px_2fr_1fr_1fr_100px_24px] px-4 py-2 bg-elevated border-b border-border text-xs uppercase tracking-widest text-fg-subtle font-semibold gap-2 items-center">
               <span />
               <span>Transform</span>
               <span>Rows</span>

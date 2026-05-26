@@ -58,10 +58,12 @@
   --color-category-slate:      71 85 105;    /* #475569 */
   --color-category-slate-deep: 51 65 85;     /* #334155 */
 
-  /* Type */
-  --font-body:    'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  /* Type — Inter for body/display (loaded via next/font in layout.tsx),
+     JetBrains Mono for code/monospace. System fallbacks keep things
+     working if the webfont fails. */
+  --font-body:    var(--font-inter), system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   --font-display: var(--font-body);
-  --font-mono:    ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono:    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Radius */
   --radius-sm:   4px;

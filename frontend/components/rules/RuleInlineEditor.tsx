@@ -36,11 +36,11 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
 
   return (
     <div className="bg-canvas border border-fg-default rounded-lg p-4 flex flex-col gap-3">
-      <div className="text-[10px] uppercase tracking-widest text-fg-default">Modify Rule</div>
+      <div className="text-xs uppercase tracking-widest text-fg-default">Modify Rule</div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className="text-[10px] text-fg-muted">Threshold (0–1)</label>
+          <label className="text-xs text-fg-muted">Threshold (0–1)</label>
           <input
             className={inputClass}
             type="number"
@@ -53,7 +53,7 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
         </div>
         {rule.min !== undefined && (
           <div>
-            <label className="text-[10px] text-fg-muted">Min</label>
+            <label className="text-xs text-fg-muted">Min</label>
             <input
               className={inputClass}
               defaultValue={edit.min ?? rule.min}
@@ -63,7 +63,7 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
         )}
         {rule.max !== undefined && (
           <div>
-            <label className="text-[10px] text-fg-muted">Max</label>
+            <label className="text-xs text-fg-muted">Max</label>
             <input
               className={inputClass}
               defaultValue={edit.max ?? rule.max}
@@ -73,7 +73,7 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
         )}
         {rule.pattern !== undefined && (
           <div className="col-span-2">
-            <label className="text-[10px] text-fg-muted">Pattern (regex)</label>
+            <label className="text-xs text-fg-muted">Pattern (regex)</label>
             <input
               className={inputClass}
               defaultValue={edit.pattern ?? rule.pattern}
@@ -83,7 +83,7 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
         )}
         {rule.format !== undefined && (
           <div className="col-span-2">
-            <label className="text-[10px] text-fg-muted">Format</label>
+            <label className="text-xs text-fg-muted">Format</label>
             <input
               className={inputClass}
               defaultValue={edit.format ?? rule.format}
@@ -93,7 +93,7 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
         )}
         {rule.values !== undefined && (
           <div className="col-span-2">
-            <label className="text-[10px] text-fg-muted">Values (comma-separated)</label>
+            <label className="text-xs text-fg-muted">Values (comma-separated)</label>
             <input
               className={inputClass}
               defaultValue={((edit.values ?? rule.values ?? []) as unknown[]).join(', ')}
@@ -109,7 +109,7 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
 
       {rule.sodacl && (
         <div>
-          <label className="text-[10px] text-fg-muted">SodaCL (editable)</label>
+          <label className="text-xs text-fg-muted">SodaCL (editable)</label>
           <textarea
             className={inputClass + ' resize-y min-h-[72px]'}
             defaultValue={edit.sodacl ?? rule.sodacl}
@@ -121,7 +121,7 @@ export function RuleInlineEditor({ rule, edit, onChange, onCancel, onSaveAndAppr
       {error && (
         <div
           data-testid="rule-editor-error"
-          className="flex items-start gap-2 px-3 py-2 rounded-md bg-danger/10 border border-danger/40 text-[11px] text-danger-deep"
+          className="flex items-start gap-2 px-3 py-2 rounded-md bg-danger/10 border border-danger/40 text-xs text-danger-deep"
         >
           <AlertCircle size={14} strokeWidth={2} className="shrink-0 mt-px" />
           <span>{error}</span>

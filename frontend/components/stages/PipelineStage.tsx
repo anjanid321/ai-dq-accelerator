@@ -140,7 +140,7 @@ export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="bg-surface border border-border rounded-lg p-3">
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
               Warehouse
             </label>
             <SelectField
@@ -155,7 +155,7 @@ export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
             </SelectField>
           </div>
           <div className="bg-surface border border-border rounded-lg p-3">
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
               Orchestrator
             </label>
             <SelectField value={env.orchestrator} disabled>
@@ -163,7 +163,7 @@ export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
             </SelectField>
           </div>
           <div className="bg-surface border border-border rounded-lg p-3">
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
               Schedule
             </label>
             <input
@@ -173,7 +173,7 @@ export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
             />
           </div>
           <div className="bg-surface border border-border rounded-lg p-3">
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
               Python Version
             </label>
             <input
@@ -183,7 +183,7 @@ export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
             />
           </div>
           <div className="bg-surface border border-border rounded-lg p-3 md:col-span-2">
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
               Slack Channel (optional)
             </label>
             <input
@@ -207,7 +207,7 @@ export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
                 <Icon size={16} strokeWidth={2} />
               </div>
               <div className="text-xs font-semibold text-fg">{name}</div>
-              <div className="text-[11px] text-fg-muted leading-relaxed">{desc}</div>
+              <div className="text-xs text-fg-muted leading-relaxed">{desc}</div>
             </div>
           ))}
         </div>

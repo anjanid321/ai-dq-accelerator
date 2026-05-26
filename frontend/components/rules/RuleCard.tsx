@@ -126,12 +126,12 @@ export function RuleCard({
         )}
       </div>
 
-      <div className="flex gap-3 text-[11px] text-fg-muted">
+      <div className="flex gap-3 text-xs text-fg-muted">
         {rule.column && <span>column: {rule.column}</span>}
         <span>check: {rule.check}</span>
       </div>
       {rule.rationale && (
-        <p className="text-[11px] italic text-fg-muted leading-relaxed">{rule.rationale}</p>
+        <p className="text-xs italic text-fg-muted leading-relaxed">{rule.rationale}</p>
       )}
 
       {isEditing && (

@@ -23,7 +23,7 @@ describe('Chip', () => {
         expect(el.className).toContain('px-2')
         expect(el.className).toContain('py-0.5')
         expect(el.className).toContain('rounded-md')
-        expect(el.className).toContain('text-[11px]')
+        expect(el.className).toContain('text-xs')
         expect(el.className).toContain('font-semibold')
         expect(el.className).toContain(bgClass)
         expect(el.className).toContain(textClass)
