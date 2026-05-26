@@ -15,6 +15,8 @@ import type {
   TriageClassification,
   TransformPlan,
   TransformPlanStep,
+  ScorecardResponse,
+  TransformationLogEntry,
 } from '@/lib/types'
 import type { AIEvent } from '@/hooks/useAIStream'
 import type { ExplorationState } from '@/components/stages/ExplorationStage'
@@ -639,6 +641,100 @@ export const DEMO_TRANSFORM_SESSION: SessionState = {
   triage_result: DEMO_TRIAGE_RESULT,
   transform_plan: DEMO_EXECUTING_PLAN,
 }
+
+// Scorecard fixture — six transformation log entries mirroring the executed
+// plan, all in 'applied' status, with realistic affected_rows + score_delta
+// values. baseline_score 0.78 → final_score 0.895 (+11.5% improvement).
+const DEMO_TRANSFORMATION_LOG: TransformationLogEntry[] = [
+  {
+    id: 'log-1',
+    type: 'normalize_format',
+    params: { column: 'phone', target_format: '(XXX) XXX-XXXX', strip_chars: '.-+ ' },
+    affected_rows: 152,
+    score_delta: 0.08,
+    status: 'applied',
+    rationale: 'Phone format normalization fixed every row that previously failed the strict format check.',
+  },
+  {
+    id: 'log-2',
+    type: 'normalize_domain',
+    params: { column: 'employer_domain', strip_protocol: true, lowercase: true },
+    affected_rows: 41,
+    score_delta: 0.02,
+    status: 'applied',
+    rationale: 'Canonicalized employer_domain values to bare lowercase hostnames.',
+  },
+  {
+    id: 'log-3',
+    type: 'update_rule',
+    params: { rule_id: 'r6', new_threshold: 0.97 },
+    affected_rows: 0,
+    score_delta: 0.01,
+    status: 'applied',
+    rationale: 'Relaxed email regex tolerance from 95% to 97% per Triage decision.',
+  },
+  {
+    id: 'log-4',
+    type: 'remove_rule',
+    params: { rule_id: 'r9-eval' },
+    affected_rows: 0,
+    score_delta: 0,
+    status: 'applied',
+    rationale: 'Removed the eval_error custom check (NameError on `re` import).',
+  },
+  {
+    id: 'log-5',
+    type: 'remove_rule',
+    params: { rule_id: 'r10-synth' },
+    affected_rows: 0,
+    score_delta: 0,
+    status: 'applied',
+    rationale: 'Removed the co_signer_phone not_null rule — the column is correctly missing for single-applicant loans.',
+  },
+  {
+    id: 'log-6',
+    type: 'custom',
+    params: { column: 'application_date' },
+    affected_rows: 3,
+    score_delta: 0.015,
+    status: 'applied',
+    rationale: 'Clipped 3 future-dated application_date entries to today.',
+    custom_code:
+      "df.loc[df['application_date'] > pd.Timestamp.today(), 'application_date'] = pd.Timestamp.today()",
+  },
+]
+
+const DEMO_SCORECARD_DATA: ScorecardResponse = {
+  stage: 'COMPLETE',
+  baseline_score: 0.78,
+  final_score: 0.895,
+  delta: 0.115,
+  original_rows: 200,
+  final_rows: 200,
+  rows_removed: 0,
+  rows_modified: 196,
+  rules_passing: 7,
+  rules_total: 7,
+  narrative:
+    'The transform pass lifted dataset quality from 78% to 89.5% with no row loss. Phone format normalization was the biggest win — 152 rows now match the canonical (XXX) XXX-XXXX shape. Employer domain canonicalization standardized 41 hostnames. Three future-dated applications were clipped to today, and two intentional-null/legacy rules were retired. The data is ready for downstream consumption.',
+  transformation_log: DEMO_TRANSFORMATION_LOG,
+}
+
+export const DEMO_SCORECARD_SESSION: SessionState = {
+  ...baseSession('COMPLETE'),
+  ai_summary: DEMO_AI_SUMMARY,
+  suggested_rules: DEMO_RULES,
+  baseline_quality_score: 0.78,
+  current_score: 0.895,
+  validation_summary: DEMO_VALIDATE_SESSION.validation_summary,
+  anomaly_summary: DEMO_VALIDATE_SESSION.anomaly_summary,
+  validation_results: DEMO_VALIDATION_RESULTS,
+  triage_result: DEMO_TRIAGE_RESULT,
+  transform_plan: DEMO_EXECUTING_PLAN,
+  transformation_log: DEMO_TRANSFORMATION_LOG,
+}
+
+export { DEMO_SCORECARD_DATA }
 
 export const DEMO_EXPLORE_STATE: ExplorationState = {
   exploration_findings: {},
