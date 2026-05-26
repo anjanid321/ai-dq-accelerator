@@ -19,6 +19,7 @@ import { RulesStage } from '@/components/stages/RulesStage'
 import { ValidateStage } from '@/components/stages/ValidateStage'
 import { TriageStage } from '@/components/stages/TriageStage'
 import { PlanReviewStage } from '@/components/stages/PlanReviewStage'
+import { ExecutionStage } from '@/components/stages/ExecutionStage'
 import { SessionCard } from '@/components/sessions/SessionCard'
 import { SessionsTopBar } from '@/components/sessions/SessionsTopBar'
 import { UploadModal } from '@/components/sessions/UploadModal'
@@ -33,10 +34,11 @@ import {
   DEMO_VALIDATE_SESSION,
   DEMO_TRIAGE_SESSION,
   DEMO_PLAN_SESSION,
+  DEMO_TRANSFORM_SESSION,
   DEMO_SESSIONS_LIST,
 } from './_fixtures/mock-session'
 
-const DEMO_STAGES: StageId[] = ['profile', 'explore', 'rules', 'validate', 'triage', 'plan']
+const DEMO_STAGES: StageId[] = ['profile', 'explore', 'rules', 'validate', 'triage', 'plan', 'transform']
 
 // Stepper sidebar omits 'load' — loading is shown as a banner above the
 // Profile stage content instead of a separate clickable stage.
@@ -60,7 +62,7 @@ const WAITING_MESSAGES: Record<StageId, string | undefined> = {
   validate: 'Running validation rules…',
   triage: 'Awaiting triage decisions',
   plan: 'Awaiting plan approval',
-  transform: undefined,
+  transform: 'Executing transformations…',
   scorecard: undefined,
   pipeline: undefined,
 }
@@ -207,6 +209,8 @@ function Workspace({ onBack }: { onBack: () => void }) {
         return <TriageStage session={DEMO_TRIAGE_SESSION} />
       case 'plan':
         return <PlanReviewStage session={DEMO_PLAN_SESSION} demoMode />
+      case 'transform':
+        return <ExecutionStage session={DEMO_TRANSFORM_SESSION} demoMode />
       default:
         return <OutOfScopePlaceholder stage={viewingStage} />
     }

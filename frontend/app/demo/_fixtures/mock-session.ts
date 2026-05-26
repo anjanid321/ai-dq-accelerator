@@ -564,6 +564,82 @@ export const DEMO_PLAN_SESSION: SessionState = {
   transform_plan: DEMO_TRANSFORM_PLAN,
 }
 
+// Transform execution fixture — shows a partially-completed run where the
+// first 4 steps applied with actual_score_delta + before/after samples, step
+// 5 is currently applying, step 6 is still pending.
+const DEMO_EXECUTED_STEPS: TransformPlanStep[] = [
+  {
+    ...DEMO_TRANSFORM_PLAN_STEPS[0],
+    status: 'applied',
+    actual_score_delta: 0.08,
+    affected_row_count: 152,
+    before_sample: [
+      { application_id: 'LA-000003', phone: '7035551234', applicant_name: 'Ahmed Hassan' },
+      { application_id: 'LA-000011', phone: '703.555.4821', applicant_name: 'Priya Patel' },
+      { application_id: 'LA-000024', phone: '+1-703-555-9912', applicant_name: 'Carlos Rivera' },
+    ],
+    after_sample: [
+      { application_id: 'LA-000003', phone: '(703) 555-1234', applicant_name: 'Ahmed Hassan' },
+      { application_id: 'LA-000011', phone: '(703) 555-4821', applicant_name: 'Priya Patel' },
+      { application_id: 'LA-000024', phone: '(703) 555-9912', applicant_name: 'Carlos Rivera' },
+    ],
+  },
+  {
+    ...DEMO_TRANSFORM_PLAN_STEPS[1],
+    status: 'applied',
+    actual_score_delta: 0.02,
+    affected_row_count: 41,
+    before_sample: [
+      { application_id: 'LA-000005', employer_domain: 'https://IBM.com' },
+      { application_id: 'LA-000017', employer_domain: 'GitHub.com' },
+      { application_id: 'LA-000031', employer_domain: 'http://amazon.COM' },
+    ],
+    after_sample: [
+      { application_id: 'LA-000005', employer_domain: 'ibm.com' },
+      { application_id: 'LA-000017', employer_domain: 'github.com' },
+      { application_id: 'LA-000031', employer_domain: 'amazon.com' },
+    ],
+  },
+  {
+    ...DEMO_TRANSFORM_PLAN_STEPS[2],
+    status: 'applied',
+    actual_score_delta: 0.01,
+    affected_row_count: 0,
+  },
+  {
+    ...DEMO_TRANSFORM_PLAN_STEPS[3],
+    status: 'applied',
+    actual_score_delta: 0,
+    affected_row_count: 0,
+  },
+  {
+    ...DEMO_TRANSFORM_PLAN_STEPS[4],
+    status: 'pending',
+  },
+  {
+    ...DEMO_TRANSFORM_PLAN_STEPS[5],
+    status: 'pending',
+  },
+]
+
+const DEMO_EXECUTING_PLAN: TransformPlan = {
+  ...DEMO_TRANSFORM_PLAN,
+  steps: DEMO_EXECUTED_STEPS,
+}
+
+export const DEMO_TRANSFORM_SESSION: SessionState = {
+  ...baseSession('TRANSFORMATION_LOOP'),
+  ai_summary: DEMO_AI_SUMMARY,
+  suggested_rules: DEMO_RULES,
+  baseline_quality_score: 0.78,
+  current_score: 0.89,
+  validation_summary: DEMO_VALIDATE_SESSION.validation_summary,
+  anomaly_summary: DEMO_VALIDATE_SESSION.anomaly_summary,
+  validation_results: DEMO_VALIDATION_RESULTS,
+  triage_result: DEMO_TRIAGE_RESULT,
+  transform_plan: DEMO_EXECUTING_PLAN,
+}
+
 export const DEMO_EXPLORE_STATE: ExplorationState = {
   exploration_findings: {},
   open_questions: [
