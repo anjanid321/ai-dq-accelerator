@@ -21,6 +21,7 @@ import { TriageStage } from '@/components/stages/TriageStage'
 import { PlanReviewStage } from '@/components/stages/PlanReviewStage'
 import { ExecutionStage } from '@/components/stages/ExecutionStage'
 import { ScorecardStage } from '@/components/stages/ScorecardStage'
+import { PipelineStage } from '@/components/stages/PipelineStage'
 import { SessionCard } from '@/components/sessions/SessionCard'
 import { SessionsTopBar } from '@/components/sessions/SessionsTopBar'
 import { UploadModal } from '@/components/sessions/UploadModal'
@@ -40,7 +41,7 @@ import {
   DEMO_SESSIONS_LIST,
 } from './_fixtures/mock-session'
 
-const DEMO_STAGES: StageId[] = ['profile', 'explore', 'rules', 'validate', 'triage', 'plan', 'transform', 'scorecard']
+const DEMO_STAGES: StageId[] = ['profile', 'explore', 'rules', 'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline']
 
 // Stepper sidebar omits 'load' — loading is shown as a banner above the
 // Profile stage content instead of a separate clickable stage.
@@ -66,7 +67,7 @@ const WAITING_MESSAGES: Record<StageId, string | undefined> = {
   plan: 'Awaiting plan approval',
   transform: 'Executing transformations…',
   scorecard: 'Reviewing scorecard',
-  pipeline: undefined,
+  pipeline: 'Ready to generate',
 }
 
 function OutOfScopePlaceholder({ stage }: { stage: StageId }) {
@@ -74,7 +75,7 @@ function OutOfScopePlaceholder({ stage }: { stage: StageId }) {
     <div className="p-5 flex flex-col items-center justify-center h-full gap-3 text-center">
       <div className="text-sm font-semibold text-fg">{stage} stage not in demo scope</div>
       <p className="text-xs text-fg-muted max-w-md">
-        The /demo route covers the Round 2 redesigns shipped so far — Sessions, Profile, Explore, Rules, Validate, and Triage. Later stages will land here as they're retokenized.
+        The /demo route walks the full Round 2 redesign — Sessions, Profile, Explore, Rules, Validate, Triage, Plan, Transform, Scorecard, and Pipeline.
       </p>
     </div>
   )
@@ -215,6 +216,14 @@ function Workspace({ onBack }: { onBack: () => void }) {
         return <ExecutionStage session={DEMO_TRANSFORM_SESSION} demoMode />
       case 'scorecard':
         return <ScorecardStage sessionId="demo" data={DEMO_SCORECARD_DATA} />
+      case 'pipeline':
+        return (
+          <PipelineStage
+            sessionId="demo"
+            stage="AWAITING_PIPELINE_CONFIRMATION"
+            demoMode
+          />
+        )
       default:
         return <OutOfScopePlaceholder stage={viewingStage} />
     }

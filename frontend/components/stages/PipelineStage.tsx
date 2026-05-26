@@ -1,35 +1,82 @@
 'use client'
 import { useState } from 'react'
+import {
+  ArrowRight,
+  BarChart3,
+  Boxes,
+  Check,
+  Database,
+  Download,
+  FileText,
+  GitBranch,
+  Search,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { WorkflowStage, TargetEnv } from '@/lib/types'
 import { generatePipeline, getPipelineDownloadUrl } from '@/lib/api'
 
-const ARTIFACTS = [
-  { icon: '📦', name: 'dbt Models', desc: 'SQL transform models matching your approved transforms' },
-  { icon: '🔍', name: 'SodaCL checks.yml', desc: 'Quality rules from your approved checks' },
-  { icon: '🚁', name: 'Airflow DAG', desc: 'Orchestration DAG wiring dbt + Soda end-to-end' },
-  { icon: '📄', name: 'Data Contract', desc: 'YAML schema and quality contract for downstream consumers' },
-  { icon: '📊', name: 'Quality Report', desc: 'HTML scorecard with full transformation history' },
-  { icon: '🗄️', name: 'cleaned_data.parquet', desc: 'Cleaned dataset ready for immediate use' },
+const ARTIFACTS: { Icon: LucideIcon; name: string; desc: string }[] = [
+  { Icon: Boxes, name: 'dbt Models', desc: 'SQL transform models matching your approved transforms' },
+  { Icon: Search, name: 'SodaCL checks.yml', desc: 'Quality rules from your approved checks' },
+  { Icon: GitBranch, name: 'Airflow DAG', desc: 'Orchestration DAG wiring dbt + Soda end-to-end' },
+  { Icon: FileText, name: 'Data Contract', desc: 'YAML schema and quality contract for downstream consumers' },
+  { Icon: BarChart3, name: 'Quality Report', desc: 'HTML scorecard with full transformation history' },
+  { Icon: Database, name: 'cleaned_data.parquet', desc: 'Cleaned dataset ready for immediate use' },
 ]
 
-interface Props { sessionId: string; stage: WorkflowStage; readOnly?: boolean }
+interface Props {
+  sessionId: string
+  stage: WorkflowStage
+  readOnly?: boolean
+  demoMode?: boolean
+}
 
-export function PipelineStage({ sessionId, stage, readOnly }: Props) {
-  const [env, setEnv] = useState<TargetEnv>({ warehouse: 'duckdb', orchestrator: 'airflow', python_version: '3.11', schedule: '@daily', slack_channel: '' })
+type DemoStage = 'awaiting' | 'generating' | 'complete'
+
+const FIELD_INPUT_CLASS =
+  'w-full bg-surface border border-border-strong text-fg rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary'
+
+export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
+  const [env, setEnv] = useState<TargetEnv>({
+    warehouse: 'duckdb',
+    orchestrator: 'airflow',
+    python_version: '3.11',
+    schedule: '@daily',
+    slack_channel: '',
+  })
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
-  const done = stage === 'COMPLETE'
-  const generatingNow = stage === 'GENERATING'
+  const [demoStage, setDemoStage] = useState<DemoStage>('awaiting')
+
+  const effectiveStage: WorkflowStage = demoMode
+    ? demoStage === 'awaiting'
+      ? 'AWAITING_PIPELINE_CONFIRMATION'
+      : demoStage === 'generating'
+        ? 'GENERATING'
+        : 'COMPLETE'
+    : stage
+
+  const done = effectiveStage === 'COMPLETE'
+  const generatingNow = effectiveStage === 'GENERATING'
 
   function update(key: keyof TargetEnv, value: string) {
-    setEnv(prev => ({ ...prev, [key]: value }))
+    setEnv((prev) => ({ ...prev, [key]: value }))
   }
 
   async function handleGenerate() {
     setGenerating(true)
     setError('')
     try {
-      await generatePipeline(sessionId, { ...env, slack_channel: env.slack_channel || undefined })
+      if (demoMode) {
+        setDemoStage('generating')
+        await new Promise((r) => setTimeout(r, 800))
+        setDemoStage('complete')
+        return
+      }
+      await generatePipeline(sessionId, {
+        ...env,
+        slack_channel: env.slack_channel || undefined,
+      })
     } catch (e) {
       setError(String(e))
     } finally {
@@ -37,75 +84,150 @@ export function PipelineStage({ sessionId, stage, readOnly }: Props) {
     }
   }
 
+  const downloadHref = demoMode ? '#' : getPipelineDownloadUrl(sessionId)
+
   return (
-    <div className="p-5">
-      <h1 className="text-base font-bold text-text-primary mb-1">Generate Pipeline</h1>
-      <p className="text-xs text-text-muted mb-4">Configure your target environment and generate a production-ready data quality pipeline.</p>
-
-      {/* Config form */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        <div className="bg-surface border border-border rounded-lg p-3">
-          <label className="text-[10px] uppercase tracking-wider text-text-muted block mb-1.5">Warehouse</label>
-          <select className="w-full bg-bg border border-border text-text-primary rounded-md px-2.5 py-1.5 text-xs outline-none" value={env.warehouse} onChange={e => update('warehouse', e.target.value)}>
-            {['snowflake', 'postgres', 'bigquery', 'duckdb'].map(w => <option key={w} value={w}>{w}</option>)}
-          </select>
-        </div>
-        <div className="bg-surface border border-border rounded-lg p-3">
-          <label className="text-[10px] uppercase tracking-wider text-text-muted block mb-1.5">Orchestrator</label>
-          <select className="w-full bg-bg border border-border text-text-primary rounded-md px-2.5 py-1.5 text-xs outline-none" value={env.orchestrator} disabled>
-            <option value="airflow">Airflow</option>
-          </select>
-        </div>
-        <div className="bg-surface border border-border rounded-lg p-3">
-          <label className="text-[10px] uppercase tracking-wider text-text-muted block mb-1.5">Schedule</label>
-          <input className="w-full bg-bg border border-border text-text-primary rounded-md px-2.5 py-1.5 text-xs font-mono outline-none" value={env.schedule} onChange={e => update('schedule', e.target.value)} />
-        </div>
-        <div className="bg-surface border border-border rounded-lg p-3">
-          <label className="text-[10px] uppercase tracking-wider text-text-muted block mb-1.5">Python Version</label>
-          <input className="w-full bg-bg border border-border text-text-primary rounded-md px-2.5 py-1.5 text-xs font-mono outline-none" value={env.python_version} onChange={e => update('python_version', e.target.value)} />
-        </div>
-        <div className="bg-surface border border-border rounded-lg p-3 col-span-2">
-          <label className="text-[10px] uppercase tracking-wider text-text-muted block mb-1.5">Slack Channel (optional)</label>
-          <input className="w-full bg-bg border border-border text-text-primary rounded-md px-2.5 py-1.5 text-xs font-mono outline-none" placeholder="#data-quality-alerts" value={env.slack_channel ?? ''} onChange={e => update('slack_channel', e.target.value)} />
-        </div>
+    <div className="p-5 flex flex-col gap-4">
+      <div className="flex flex-col gap-0.5">
+        <h1 className="text-base font-bold text-fg">Generate Pipeline</h1>
+        <p className="text-xs text-fg-muted">
+          Configure your target environment and generate a production-ready data quality pipeline.
+        </p>
       </div>
 
-      {/* Artifacts */}
-      <div className="text-[10px] uppercase tracking-widest text-text-muted mb-2">What gets generated</div>
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {ARTIFACTS.map(a => (
-          <div key={a.name} className="bg-surface border border-border rounded-xl p-3.5">
-            <div className="text-xl mb-2">{a.icon}</div>
-            <div className="text-xs font-semibold text-text-primary mb-1">{a.name}</div>
-            <div className="text-[11px] text-text-muted leading-relaxed">{a.desc}</div>
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-2">
+          Target Environment
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="bg-surface border border-border rounded-lg p-3">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+              Warehouse
+            </label>
+            <select
+              className={FIELD_INPUT_CLASS}
+              value={env.warehouse}
+              onChange={(e) => update('warehouse', e.target.value)}
+            >
+              {['snowflake', 'postgres', 'bigquery', 'duckdb'].map((w) => (
+                <option key={w} value={w}>
+                  {w}
+                </option>
+              ))}
+            </select>
           </div>
-        ))}
+          <div className="bg-surface border border-border rounded-lg p-3">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+              Orchestrator
+            </label>
+            <select
+              className={`${FIELD_INPUT_CLASS} disabled:opacity-70`}
+              value={env.orchestrator}
+              disabled
+            >
+              <option value="airflow">Airflow</option>
+            </select>
+          </div>
+          <div className="bg-surface border border-border rounded-lg p-3">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+              Schedule
+            </label>
+            <input
+              className={`${FIELD_INPUT_CLASS} font-mono`}
+              value={env.schedule}
+              onChange={(e) => update('schedule', e.target.value)}
+            />
+          </div>
+          <div className="bg-surface border border-border rounded-lg p-3">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+              Python Version
+            </label>
+            <input
+              className={`${FIELD_INPUT_CLASS} font-mono`}
+              value={env.python_version}
+              onChange={(e) => update('python_version', e.target.value)}
+            />
+          </div>
+          <div className="bg-surface border border-border rounded-lg p-3 md:col-span-2">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
+              Slack Channel (optional)
+            </label>
+            <input
+              className={`${FIELD_INPUT_CLASS} font-mono`}
+              placeholder="#data-quality-alerts"
+              value={env.slack_channel ?? ''}
+              onChange={(e) => update('slack_channel', e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
-      {error && <div className="text-danger-light text-xs mb-3">{error}</div>}
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-2">
+          What Gets Generated
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {ARTIFACTS.map(({ Icon, name, desc }) => (
+            <div key={name} className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-1.5">
+              <div className="w-7 h-7 rounded-md bg-accent-indigo/15 text-accent-indigo-deep flex items-center justify-center">
+                <Icon size={16} strokeWidth={2} />
+              </div>
+              <div className="text-xs font-semibold text-fg">{name}</div>
+              <div className="text-[11px] text-fg-muted leading-relaxed">{desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-      {/* CTA */}
-      {!readOnly && <div className="flex gap-3">
-        {done ? (
-          <>
-            <button className="flex-1 bg-success text-black font-semibold text-sm py-3 rounded-xl cursor-default flex items-center justify-center gap-2">
-              ✓ Pipeline Generated — Ready to Download
+      {error && (
+        <div className="bg-danger/15 border border-danger/30 rounded-lg px-3 py-2 text-xs text-danger-deep">
+          {error}
+        </div>
+      )}
+
+      {!readOnly && (
+        <div className="flex flex-wrap gap-3">
+          {done ? (
+            <>
+              <div className="flex-1 min-w-[260px] bg-success/15 border border-success/30 text-success-deep text-sm font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2">
+                <Check size={16} strokeWidth={2.5} />
+                Pipeline Generated — Ready to Download
+              </div>
+              <a
+                href={downloadHref}
+                download
+                className="inline-flex items-center gap-1.5 bg-brand-accent text-on-brand text-[13px] font-semibold px-5 py-3 rounded-xl hover:bg-brand-accent/90 hover:shadow-md transition-all"
+              >
+                <Download size={14} strokeWidth={2} />
+                Download ZIP
+              </a>
+            </>
+          ) : generatingNow ? (
+            <button
+              type="button"
+              disabled
+              className="flex-1 inline-flex items-center justify-center gap-2 bg-brand-accent/60 text-on-brand text-[13px] font-semibold py-3 rounded-xl cursor-default"
+            >
+              <div
+                role="status"
+                aria-label="Generating"
+                className="w-4 h-4 border-2 border-on-brand border-t-transparent rounded-full animate-spin"
+              />
+              Generating your pipeline…
             </button>
-            <a href={getPipelineDownloadUrl(sessionId)} download className="bg-surface border border-indigo/40 text-indigo-light text-sm font-medium px-5 py-3 rounded-xl hover:bg-indigo/10">
-              ↓ Download ZIP
-            </a>
-          </>
-        ) : generatingNow ? (
-          <button className="flex-1 bg-indigo/50 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-2 cursor-default" disabled>
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Generating your pipeline...
-          </button>
-        ) : (
-          <button className="flex-1 bg-indigo text-white font-semibold text-sm py-3 rounded-xl disabled:opacity-40" disabled={generating} onClick={handleGenerate}>
-            {generating ? 'Starting...' : 'Generate Pipeline →'}
-          </button>
-        )}
-      </div>}
+          ) : (
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={generating}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-brand-accent text-on-brand text-[13px] font-semibold py-3 rounded-xl hover:bg-brand-accent/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {generating ? 'Starting…' : 'Generate Pipeline'}
+              {!generating && <ArrowRight size={14} strokeWidth={2} />}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
