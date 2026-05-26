@@ -31,7 +31,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
   return (
     <div className={`border-b border-border last:border-0 ${!isApplied ? 'opacity-60' : ''}`}>
       <div
-        className={`grid grid-cols-[24px_2fr_1fr_1fr_100px] px-4 py-2.5 text-xs gap-2 items-center ${
+        className={`grid grid-cols-[24px_2fr_1fr_1fr_100px_24px] px-4 py-2.5 text-xs gap-2 items-center ${
           hasDetail ? 'cursor-pointer hover:bg-elevated transition-colors' : ''
         }`}
         onClick={() => hasDetail && setExpanded((v) => !v)}
@@ -46,15 +46,6 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
         <span className="text-fg truncate flex items-center gap-1.5">
           {toTitleCase(entry.type)}
           {entry.params.column ? <span className="text-fg-subtle font-mono"> · {String(entry.params.column)}</span> : null}
-          {hasDetail && (
-            <span className="text-fg-subtle ml-1">
-              {expanded ? (
-                <ChevronUp size={12} strokeWidth={2} />
-              ) : (
-                <ChevronDown size={12} strokeWidth={2} />
-              )}
-            </span>
-          )}
         </span>
         <span className="text-fg-muted">{entry.affected_rows.toLocaleString()}</span>
         <span
@@ -69,15 +60,24 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
             {toTitleCase(entry.status)}
           </Chip>
         </span>
+        <div className="w-5 h-5 flex items-center justify-center text-fg-subtle">
+          {hasDetail ? (
+            expanded ? (
+              <ChevronUp size={14} strokeWidth={2} />
+            ) : (
+              <ChevronDown size={14} strokeWidth={2} />
+            )
+          ) : null}
+        </div>
       </div>
       {expanded && hasDetail && (
-        <div className="mx-4 mb-3 px-3 py-3 bg-elevated rounded-md border border-border flex flex-col gap-2 text-xs">
+        <div className="mx-4 mt-1.5 mb-3 px-4 py-3 bg-canvas rounded-md border border-border-strong flex flex-col gap-3 text-xs">
           {entry.rationale && (
             <div>
               <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
                 Rationale
               </span>
-              <p className="text-fg-muted mt-0.5">{entry.rationale}</p>
+              <p className="text-fg mt-1 leading-relaxed">{entry.rationale}</p>
             </div>
           )}
           {Object.keys(entry.params ?? {}).length > 0 && (
@@ -85,7 +85,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
               <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
                 Params
               </span>
-              <pre className="mt-0.5 text-[11px] text-fg-muted overflow-x-auto whitespace-pre-wrap break-all">
+              <pre className="mt-1 text-[11px] text-fg overflow-x-auto whitespace-pre-wrap break-all">
                 {JSON.stringify(entry.params, null, 2)}
               </pre>
             </div>
@@ -95,7 +95,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
               <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
                 Custom Code
               </span>
-              <div className="mt-0.5 bg-surface rounded-md overflow-x-auto border border-border">
+              <div className="mt-1 bg-surface rounded-md overflow-x-auto border border-border">
                 <CodeBlock code={entry.custom_code} />
               </div>
             </div>
@@ -142,7 +142,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
               <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
                 Regressions
               </span>
-              <pre className="mt-0.5 text-[11px] text-danger-deep overflow-x-auto whitespace-pre-wrap">
+              <pre className="mt-1 text-[11px] text-danger-deep overflow-x-auto whitespace-pre-wrap">
                 {JSON.stringify(entry.regressions, null, 2)}
               </pre>
             </div>
@@ -262,12 +262,13 @@ export function ScorecardStage({ sessionId, data: dataProp }: Props) {
             Transform History
           </div>
           <div className="bg-surface border border-border rounded-xl overflow-hidden">
-            <div className="grid grid-cols-[24px_2fr_1fr_1fr_100px] px-4 py-2 bg-elevated border-b border-border text-[10px] uppercase tracking-widest text-fg-subtle font-semibold gap-2 items-center">
+            <div className="grid grid-cols-[24px_2fr_1fr_1fr_100px_24px] px-4 py-2 bg-elevated border-b border-border text-[10px] uppercase tracking-widest text-fg-subtle font-semibold gap-2 items-center">
               <span />
               <span>Transform</span>
               <span>Rows</span>
               <span>Delta</span>
               <span>Status</span>
+              <span />
             </div>
             {data.transformation_log.map((entry) => (
               <TransformRow key={entry.id} entry={entry} />

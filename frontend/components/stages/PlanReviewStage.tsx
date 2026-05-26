@@ -23,10 +23,10 @@ function ParamEditor({
   const isComplex = (v: unknown) => typeof v === 'object' && v !== null
 
   return (
-    <div className="flex flex-col gap-1 mt-1">
+    <div className="flex flex-col gap-2 mt-1">
       {Object.entries(params).map(([key, value]) => (
-        <div key={key} className="flex items-start gap-2">
-          <span className="text-xs text-fg-subtle font-mono w-24 shrink-0 pt-1">{key}</span>
+        <div key={key} className="flex items-center gap-4">
+          <span className="text-xs text-fg-subtle font-mono w-32 shrink-0">{key}</span>
           <input
             type={typeof value === 'number' ? 'number' : 'text'}
             value={isComplex(value) ? JSON.stringify(value) : String(value ?? '')}

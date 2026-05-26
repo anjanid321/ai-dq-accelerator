@@ -160,7 +160,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
     !!step.approach
 
   return (
-    <div className="bg-surface border border-border rounded-lg">
+    <div className="bg-surface border border-border rounded-lg overflow-hidden">
       <div
         className={`flex items-center gap-3 py-2.5 px-3 ${
           hasDetail ? 'cursor-pointer hover:bg-elevated transition-colors' : ''
@@ -223,13 +223,13 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
         </div>
       </div>
       {expanded && hasDetail && (
-        <div className="mx-3 mb-3 px-3 py-3 bg-elevated rounded-md border border-border flex flex-col gap-2 text-xs">
+        <div className="mx-3 mt-1.5 mb-3 px-4 py-3 bg-canvas rounded-md border border-border-strong flex flex-col gap-3 text-xs">
           {step.intent && (
             <div>
               <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
                 Intent
               </span>
-              <p className="text-fg-muted mt-0.5">{step.intent}</p>
+              <p className="text-fg mt-1 leading-relaxed">{step.intent}</p>
             </div>
           )}
           {step.approach && (
@@ -237,7 +237,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
               <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
                 Approach
               </span>
-              <p className="text-fg-muted mt-0.5">{step.approach}</p>
+              <p className="text-fg mt-1 leading-relaxed">{step.approach}</p>
             </div>
           )}
           {Object.keys(step.params ?? {}).length > 0 && (
@@ -245,7 +245,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
               <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
                 Params
               </span>
-              <pre className="mt-0.5 text-[11px] text-fg-muted overflow-x-auto whitespace-pre-wrap break-all">
+              <pre className="mt-1 text-[11px] text-fg overflow-x-auto whitespace-pre-wrap break-all">
                 {JSON.stringify(step.params, null, 2)}
               </pre>
             </div>
@@ -255,7 +255,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
               <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
                 Custom Code
               </span>
-              <div className="mt-0.5 bg-surface rounded-md overflow-x-auto border border-border">
+              <div className="mt-1 bg-surface rounded-md overflow-x-auto border border-border">
                 <CodeBlock code={step.custom_code} />
               </div>
             </div>
@@ -265,7 +265,7 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
               <span className="text-fg-subtle uppercase tracking-widest text-[10px] font-semibold">
                 Targets Rules
               </span>
-              <p className="font-mono text-fg-muted mt-0.5">{step.targets_rules.join(', ')}</p>
+              <p className="font-mono text-fg mt-1">{step.targets_rules.join(', ')}</p>
             </div>
           )}
           {step.before_sample &&

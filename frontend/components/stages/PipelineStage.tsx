@@ -5,6 +5,7 @@ import {
   BarChart3,
   Boxes,
   Check,
+  ChevronDown,
   Database,
   Download,
   FileText,
@@ -35,6 +36,39 @@ type DemoStage = 'awaiting' | 'generating' | 'complete'
 
 const FIELD_INPUT_CLASS =
   'w-full bg-surface border border-border-strong text-fg rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary'
+
+// Wraps a <select> so the native browser caret is replaced with a Lucide
+// ChevronDown positioned with right-3 — symmetric with the px-3 left text
+// padding on FIELD_INPUT_CLASS.
+function SelectField({
+  value,
+  onChange,
+  disabled,
+  children,
+}: {
+  value: string
+  onChange?: (v: string) => void
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
+        disabled={disabled}
+        className={`${FIELD_INPUT_CLASS} appearance-none pr-9 disabled:opacity-70`}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        size={14}
+        strokeWidth={2}
+        className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-fg-muted"
+      />
+    </div>
+  )
+}
 
 export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
   const [env, setEnv] = useState<TargetEnv>({
@@ -109,29 +143,24 @@ export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
             <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
               Warehouse
             </label>
-            <select
-              className={FIELD_INPUT_CLASS}
+            <SelectField
               value={env.warehouse}
-              onChange={(e) => update('warehouse', e.target.value)}
+              onChange={(v) => update('warehouse', v)}
             >
               {['snowflake', 'postgres', 'bigquery', 'duckdb'].map((w) => (
                 <option key={w} value={w}>
                   {w}
                 </option>
               ))}
-            </select>
+            </SelectField>
           </div>
           <div className="bg-surface border border-border rounded-lg p-3">
             <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
               Orchestrator
             </label>
-            <select
-              className={`${FIELD_INPUT_CLASS} disabled:opacity-70`}
-              value={env.orchestrator}
-              disabled
-            >
+            <SelectField value={env.orchestrator} disabled>
               <option value="airflow">Airflow</option>
-            </select>
+            </SelectField>
           </div>
           <div className="bg-surface border border-border rounded-lg p-3">
             <label className="text-[10px] font-semibold uppercase tracking-widest text-fg-subtle block mb-1.5">
