@@ -158,7 +158,7 @@ export function TriageStage({ session, readOnly }: Props) {
 
   if (stage === 'TRIAGING' || !triage_result) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-5">
         <div className="bg-surface border border-border rounded-xl p-6 flex items-center gap-3">
           <div
             role="status"
@@ -181,6 +181,8 @@ export function TriageStage({ session, readOnly }: Props) {
 
   const needsDecision = classifications.filter(c => c.classification !== 'transform_fixable')
   const canSubmit = needsDecision.every(c => decisions[c.rule_id] !== 'pending')
+  const acceptedCount = needsDecision.filter(c => decisions[c.rule_id] === 'accept').length
+  const keptCount = needsDecision.filter(c => decisions[c.rule_id] === 'keep').length
   const pendingCount = needsDecision.filter(c => decisions[c.rule_id] === 'pending').length
 
   const filteredClassifications = classifications.filter(c => {
@@ -211,103 +213,122 @@ export function TriageStage({ session, readOnly }: Props) {
   }
 
   return (
-    <div className="p-6 flex flex-col gap-6 max-w-3xl mx-auto">
-      <div className="flex flex-col gap-0.5">
-        <h1 className="text-base font-bold text-fg">Triage Results</h1>
-        <p className="text-xs text-fg-muted">
-          Review the AI's classification of every failing rule and decide what to do with each.
-        </p>
-      </div>
-
-      <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-3">
-        <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
-          Triage Summary
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-base font-bold text-fg">Triage Results</h1>
+          <p className="text-xs text-fg-muted">
+            Review the AI's classification of every failing rule and decide what to do with each.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-4">
-          {summary.transform_fixable > 0 && (
-            <span className="flex items-center gap-1.5 text-sm">
-              <span className="w-2 h-2 rounded-full bg-success shrink-0" />
-              <span className="text-fg-muted">{summary.transform_fixable} Transform Fixable</span>
-            </span>
-          )}
-          {summary.threshold_too_strict > 0 && (
-            <span className="flex items-center gap-1.5 text-sm">
-              <span className="w-2 h-2 rounded-full bg-warning shrink-0" />
-              <span className="text-fg-muted">{summary.threshold_too_strict} Threshold Too Strict</span>
-            </span>
-          )}
-          {summary.unfixable > 0 && (
-            <span className="flex items-center gap-1.5 text-sm">
-              <span className="w-2 h-2 rounded-full bg-danger shrink-0" />
-              <span className="text-fg-muted">{summary.unfixable} Unfixable</span>
-            </span>
-          )}
-          {summary.eval_error > 0 && (
-            <span className="flex items-center gap-1.5 text-sm">
-              <span className="w-2 h-2 rounded-full bg-warning shrink-0" />
-              <span className="text-fg-muted">{summary.eval_error} Eval Error</span>
-            </span>
-          )}
+
+        <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            Triage Summary
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {summary.transform_fixable > 0 && (
+              <span className="flex items-center gap-1.5 text-sm">
+                <span className="w-2 h-2 rounded-full bg-success shrink-0" />
+                <span className="text-fg-muted">{summary.transform_fixable} Transform Fixable</span>
+              </span>
+            )}
+            {summary.threshold_too_strict > 0 && (
+              <span className="flex items-center gap-1.5 text-sm">
+                <span className="w-2 h-2 rounded-full bg-warning shrink-0" />
+                <span className="text-fg-muted">{summary.threshold_too_strict} Threshold Too Strict</span>
+              </span>
+            )}
+            {summary.unfixable > 0 && (
+              <span className="flex items-center gap-1.5 text-sm">
+                <span className="w-2 h-2 rounded-full bg-danger shrink-0" />
+                <span className="text-fg-muted">{summary.unfixable} Unfixable</span>
+              </span>
+            )}
+            {summary.eval_error > 0 && (
+              <span className="flex items-center gap-1.5 text-sm">
+                <span className="w-2 h-2 rounded-full bg-warning shrink-0" />
+                <span className="text-fg-muted">{summary.eval_error} Eval Error</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {(['all', 'needs_decision', 'fixable', 'unfixable'] as FilterMode[]).map(f => {
+            const isActive = filter === f
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                data-filter={f}
+                data-active={isActive}
+                className={[
+                  'text-xs px-2.5 py-1 rounded-md border bg-surface transition-colors',
+                  isActive
+                    ? 'border-brand-primary text-fg font-semibold hover:bg-brand-primary/5'
+                    : 'border-border-strong text-fg-muted hover:bg-elevated hover:border-fg-muted hover:text-fg',
+                ].join(' ')}
+              >
+                {FILTER_LABEL[f]}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {filteredClassifications.map(item => (
+            <TriageCard
+              key={item.rule_id}
+              item={item}
+              decision={decisions[item.rule_id] ?? 'pending'}
+              onDecide={setDecision}
+              readOnly={readOnly}
+            />
+          ))}
         </div>
       </div>
 
-      <div className="flex gap-1.5">
-        {(['all', 'needs_decision', 'fixable', 'unfixable'] as FilterMode[]).map(f => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            className={
-              filter === f
-                ? 'inline-flex items-center bg-brand-primary text-on-brand text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors'
-                : 'inline-flex items-center bg-surface border border-border text-fg-muted text-[11px] font-semibold px-2.5 py-1 rounded-md hover:bg-elevated hover:border-fg-muted hover:text-fg transition-colors'
-            }
-          >
-            {FILTER_LABEL[f]}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        {filteredClassifications.map(item => (
-          <TriageCard
-            key={item.rule_id}
-            item={item}
-            decision={decisions[item.rule_id] ?? 'pending'}
-            onDecide={setDecision}
-            readOnly={readOnly}
-          />
-        ))}
-      </div>
+      {error && (
+        <div
+          data-testid="triage-error"
+          className="bg-danger/15 border-t border-danger/30 px-6 py-2 text-xs text-danger-deep shrink-0"
+        >
+          {error}
+        </div>
+      )}
 
       {needsDecision.length > 0 && !readOnly && (
-        <div className="sticky bottom-4">
-          <div className="bg-elevated border border-border rounded-xl p-4 flex items-center justify-between gap-4 shadow-lg">
-            <div className="text-sm text-fg-muted">
-              {canSubmit ? (
-                'All decisions made — ready to proceed.'
-              ) : (
-                <>
-                  <span className="text-warning-deep font-semibold">{pendingCount}</span>{' '}
-                  {pendingCount === 1 ? 'rule needs' : 'rules need'} a decision.
-                </>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canSubmit || submitting}
-              className="inline-flex items-center gap-1.5 bg-brand-accent text-on-brand text-[13px] font-semibold px-4 py-2 rounded-md hover:bg-brand-accent/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {submitting ? 'Submitting…' : 'Apply Triage Decisions'}
-              {!submitting && <ArrowRight size={14} strokeWidth={2} aria-hidden />}
-            </button>
+        <div
+          data-testid="triage-footer"
+          className="bg-surface border-t border-border px-6 py-3 flex items-center gap-4 shrink-0"
+        >
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-success" />
+              <span className="text-[12px] font-medium text-success-deep">{acceptedCount} Accepted</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-danger" />
+              <span className="text-[12px] font-medium text-danger-deep">{keptCount} Kept</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-border-strong" />
+              <span className="text-[12px] font-medium text-fg-muted">{pendingCount} Pending</span>
+            </span>
           </div>
-          {error && (
-            <div className="mt-2 bg-danger/15 border border-danger/30 rounded-lg px-3 py-2 text-xs text-danger-deep">
-              {error}
-            </div>
-          )}
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit || submitting}
+            data-testid="apply-triage-decisions"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-on-brand text-[13px] font-semibold px-4 py-2 rounded-md hover:bg-brand-accent/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            {submitting ? 'Submitting…' : 'Apply Triage Decisions'}
+            {!submitting && <ArrowRight size={14} strokeWidth={2} aria-hidden />}
+          </button>
         </div>
       )}
     </div>

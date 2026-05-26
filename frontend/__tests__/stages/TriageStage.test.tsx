@@ -359,7 +359,7 @@ describe('TriageStage', () => {
     expect(screen.getByText('tts1')).toBeInTheDocument()
   })
 
-  it('the active filter tab uses bg-brand-primary + text-on-brand; inactive uses bg-surface + border-border', () => {
+  it('filter tabs adopt the Rules-style vocabulary (active: border-brand-primary + text-fg + font-semibold; inactive: border-border-strong + text-fg-muted)', () => {
     render(
       <TriageStage
         session={makeSession({
@@ -368,15 +368,16 @@ describe('TriageStage', () => {
       />,
     )
     const allBtn = screen.getByRole('button', { name: /^All$/ })
-    expect(allBtn.className).toContain('bg-brand-primary')
-    expect(allBtn.className).toContain('text-on-brand')
+    expect(allBtn.className).toContain('border-brand-primary')
+    expect(allBtn.className).toContain('text-fg')
+    expect(allBtn.className).toContain('font-semibold')
     const fixableBtn = screen.getByRole('button', { name: /^Fixable$/ })
     expect(fixableBtn.className).toContain('bg-surface')
-    expect(fixableBtn.className).toContain('border-border')
+    expect(fixableBtn.className).toContain('border-border-strong')
     expect(fixableBtn.className).toContain('text-fg-muted')
   })
 
-  it('submit bar shows "N rules need a decision" with N in text-warning-deep when pending; disables submit', () => {
+  it('footer tally shows Accepted/Kept/Pending counts and disables submit while Pending > 0', () => {
     render(
       <TriageStage
         session={makeSession({
@@ -393,15 +394,15 @@ describe('TriageStage', () => {
         })}
       />,
     )
-    expect(screen.getByText(/rules need a decision/)).toBeInTheDocument()
-    const count = screen.getByText('2', { selector: 'span' })
-    expect(count.className).toContain('text-warning-deep')
-    expect(count.className).toContain('font-semibold')
-    const submit = screen.getByRole('button', { name: /Apply Triage Decisions/i })
+    const footer = screen.getByTestId('triage-footer')
+    expect(footer).toHaveTextContent(/0 Accepted/)
+    expect(footer).toHaveTextContent(/0 Kept/)
+    expect(footer).toHaveTextContent(/2 Pending/)
+    const submit = screen.getByTestId('apply-triage-decisions')
     expect(submit).toBeDisabled()
   })
 
-  it('submit bar shows "All decisions made — ready to proceed." and enables submit when every actionable card is decided', async () => {
+  it('footer tally updates as decisions are made; submit enables once Pending hits 0', async () => {
     const user = userEvent.setup()
     render(
       <TriageStage
@@ -411,13 +412,21 @@ describe('TriageStage', () => {
               rule_id: 'tts1', classification: 'threshold_too_strict',
               proposed_threshold: 0.97, proposed_remove: false,
             }),
+            makeClassification({
+              rule_id: 'un1', classification: 'unfixable',
+              proposed_remove: true, proposed_threshold: undefined,
+            }),
           ]),
         })}
       />,
     )
     await user.click(screen.getByRole('button', { name: /Accept Change/i }))
-    expect(screen.getByText(/All decisions made — ready to proceed\./)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Apply Triage Decisions/i })).not.toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /Keep Rule/i }))
+    const footer = screen.getByTestId('triage-footer')
+    expect(footer).toHaveTextContent(/1 Accepted/)
+    expect(footer).toHaveTextContent(/1 Kept/)
+    expect(footer).toHaveTextContent(/0 Pending/)
+    expect(screen.getByTestId('apply-triage-decisions')).not.toBeDisabled()
   })
 
   it('submit button uses bg-brand-accent + text-on-brand (navy CTA, not orange)', () => {
