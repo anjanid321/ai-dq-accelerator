@@ -147,7 +147,7 @@ describe('TriageStage', () => {
     expect(ee.className).toContain('text-warning-deep')
   })
 
-  it('renders confidence color tokens per level', () => {
+  it('renders confidence as a Chip with success/warning/neutral tone per level', () => {
     render(
       <TriageStage
         session={makeSession({
@@ -159,11 +159,14 @@ describe('TriageStage', () => {
         })}
       />,
     )
-    const high = screen.getByText('confidence: high')
+    const high = screen.getByText('High Confidence', { selector: 'span' })
+    expect(high.className).toContain('bg-success/15')
     expect(high.className).toContain('text-success-deep')
-    const medium = screen.getByText('confidence: medium')
+    const medium = screen.getByText('Medium Confidence', { selector: 'span' })
+    expect(medium.className).toContain('bg-warning/15')
     expect(medium.className).toContain('text-warning-deep')
-    const low = screen.getByText('confidence: low')
+    const low = screen.getByText('Low Confidence', { selector: 'span' })
+    expect(low.className).toContain('bg-fg-subtle/15')
     expect(low.className).toContain('text-fg-muted')
   })
 

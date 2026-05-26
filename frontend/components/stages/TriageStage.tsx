@@ -28,10 +28,16 @@ const CLASSIFICATION_LABEL: Record<TriageClassification['classification'], strin
   eval_error: 'Eval Error',
 }
 
-const CONFIDENCE_COLOR: Record<TriageClassification['confidence'], string> = {
-  high: 'text-success-deep',
-  medium: 'text-warning-deep',
-  low: 'text-fg-muted',
+const CONFIDENCE_TONE: Record<TriageClassification['confidence'], StatusTone> = {
+  high: 'success',
+  medium: 'warning',
+  low: 'neutral',
+}
+
+const CONFIDENCE_LABEL: Record<TriageClassification['confidence'], string> = {
+  high: 'High Confidence',
+  medium: 'Medium Confidence',
+  low: 'Low Confidence',
 }
 
 const FILTER_LABEL: Record<FilterMode, string> = {
@@ -65,10 +71,10 @@ function TriageCard({ item, decision, onDecide, readOnly }: CardProps) {
   return (
     <div
       data-triage-card={item.rule_id}
-      className={`bg-surface border rounded-lg p-4 ${chrome}`}
+      className={`bg-surface border rounded-lg p-4 flex flex-col gap-2 ${chrome}`}
     >
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <Chip variant="status" tone={CLASSIFICATION_TONE[item.classification]}>
             {CLASSIFICATION_LABEL[item.classification]}
           </Chip>
@@ -79,18 +85,46 @@ function TriageCard({ item, decision, onDecide, readOnly }: CardProps) {
           {item.column && (
             <span className="text-xs text-fg-subtle font-mono">· {item.column}</span>
           )}
+          <Chip variant="status" tone={CONFIDENCE_TONE[item.confidence]}>
+            {CONFIDENCE_LABEL[item.confidence]}
+          </Chip>
         </div>
-        <span className={`text-xs ${CONFIDENCE_COLOR[item.confidence]}`}>
-          confidence: {item.confidence}
-        </span>
+        {needsDecision && !readOnly && (
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => onDecide(item.rule_id, decision === 'accept' ? 'pending' : 'accept')}
+              className={
+                decision === 'accept'
+                  ? 'inline-flex items-center gap-1.5 bg-success-deep border border-success-deep text-on-brand text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors'
+                  : 'inline-flex items-center gap-1.5 bg-surface border border-success text-success-deep text-[13px] font-semibold px-3 py-1.5 rounded-md hover:bg-success/10 transition-colors'
+              }
+            >
+              <Check size={14} strokeWidth={2} aria-hidden />
+              {acceptLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => onDecide(item.rule_id, decision === 'keep' ? 'pending' : 'keep')}
+              className={
+                decision === 'keep'
+                  ? 'inline-flex items-center gap-1.5 bg-danger-deep border border-danger-deep text-on-brand text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors'
+                  : 'inline-flex items-center gap-1.5 bg-surface border border-danger text-danger-deep text-[13px] font-semibold px-3 py-1.5 rounded-md hover:bg-danger/10 transition-colors'
+              }
+            >
+              <X size={14} strokeWidth={2} aria-hidden />
+              {keepLabel}
+            </button>
+          </div>
+        )}
       </div>
 
-      <p className="text-sm text-fg-muted leading-relaxed mb-3">{item.reason}</p>
+      <p className="text-sm text-fg-muted leading-relaxed">{item.reason}</p>
 
       {needsDecision && (
         <>
           {item.classification === 'threshold_too_strict' && item.proposed_threshold !== undefined && (
-            <div className="text-xs text-fg-muted mb-2">
+            <div className="text-xs text-fg-muted">
               Proposed: raise threshold to{' '}
               <span className="font-semibold text-warning-deep">
                 {(item.proposed_threshold * 100).toFixed(2)}%
@@ -98,40 +132,11 @@ function TriageCard({ item, decision, onDecide, readOnly }: CardProps) {
             </div>
           )}
           {(item.classification === 'unfixable' || item.classification === 'eval_error') && item.proposed_remove && (
-            <div className="text-xs text-fg-muted mb-2">
+            <div className="text-xs text-fg-muted">
               Proposed: <span className="font-semibold text-danger-deep">remove rule</span>
             </div>
           )}
         </>
-      )}
-
-      {needsDecision && !readOnly && (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onDecide(item.rule_id, decision === 'accept' ? 'pending' : 'accept')}
-            className={
-              decision === 'accept'
-                ? 'inline-flex items-center gap-1.5 bg-success-deep border border-success-deep text-on-brand text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors'
-                : 'inline-flex items-center gap-1.5 bg-surface border border-success text-success-deep text-[13px] font-semibold px-3 py-1.5 rounded-md hover:bg-success/10 transition-colors'
-            }
-          >
-            <Check size={14} strokeWidth={2} aria-hidden />
-            {acceptLabel}
-          </button>
-          <button
-            type="button"
-            onClick={() => onDecide(item.rule_id, decision === 'keep' ? 'pending' : 'keep')}
-            className={
-              decision === 'keep'
-                ? 'inline-flex items-center gap-1.5 bg-danger-deep border border-danger-deep text-on-brand text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors'
-                : 'inline-flex items-center gap-1.5 bg-surface border border-danger text-danger-deep text-[13px] font-semibold px-3 py-1.5 rounded-md hover:bg-danger/10 transition-colors'
-            }
-          >
-            <X size={14} strokeWidth={2} aria-hidden />
-            {keepLabel}
-          </button>
-        </div>
       )}
 
       {!needsDecision && !readOnly && (
