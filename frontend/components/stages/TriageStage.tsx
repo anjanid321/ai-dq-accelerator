@@ -85,38 +85,14 @@ function TriageCard({ item, decision, onDecide, readOnly }: CardProps) {
           {item.column && (
             <span className="text-xs text-fg-subtle font-mono">· {item.column}</span>
           )}
-          <Chip variant="status" tone={CONFIDENCE_TONE[item.confidence]}>
-            {CONFIDENCE_LABEL[item.confidence]}
-          </Chip>
         </div>
-        {needsDecision && !readOnly && (
-          <div className="flex gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => onDecide(item.rule_id, decision === 'accept' ? 'pending' : 'accept')}
-              className={
-                decision === 'accept'
-                  ? 'inline-flex items-center gap-1.5 bg-success-deep border border-success-deep text-on-brand text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors'
-                  : 'inline-flex items-center gap-1.5 bg-surface border border-success text-success-deep text-[13px] font-semibold px-3 py-1.5 rounded-md hover:bg-success/10 transition-colors'
-              }
-            >
-              <Check size={14} strokeWidth={2} aria-hidden />
-              {acceptLabel}
-            </button>
-            <button
-              type="button"
-              onClick={() => onDecide(item.rule_id, decision === 'keep' ? 'pending' : 'keep')}
-              className={
-                decision === 'keep'
-                  ? 'inline-flex items-center gap-1.5 bg-danger-deep border border-danger-deep text-on-brand text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors'
-                  : 'inline-flex items-center gap-1.5 bg-surface border border-danger text-danger-deep text-[13px] font-semibold px-3 py-1.5 rounded-md hover:bg-danger/10 transition-colors'
-              }
-            >
-              <X size={14} strokeWidth={2} aria-hidden />
-              {keepLabel}
-            </button>
-          </div>
-        )}
+        <Chip
+          variant="status"
+          tone={CONFIDENCE_TONE[item.confidence]}
+          className="shrink-0"
+        >
+          {CONFIDENCE_LABEL[item.confidence]}
+        </Chip>
       </div>
 
       <p className="text-sm text-fg-muted leading-relaxed">{item.reason}</p>
@@ -141,6 +117,35 @@ function TriageCard({ item, decision, onDecide, readOnly }: CardProps) {
 
       {!needsDecision && !readOnly && (
         <div className="text-xs text-fg-subtle italic">(no decision required)</div>
+      )}
+
+      {needsDecision && !readOnly && (
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onDecide(item.rule_id, decision === 'accept' ? 'pending' : 'accept')}
+            className={
+              decision === 'accept'
+                ? 'inline-flex items-center gap-1.5 bg-success-deep border border-success-deep text-on-brand text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors'
+                : 'inline-flex items-center gap-1.5 bg-surface border border-success text-success-deep text-[13px] font-semibold px-3 py-1.5 rounded-md hover:bg-success/10 transition-colors'
+            }
+          >
+            <Check size={14} strokeWidth={2} aria-hidden />
+            {acceptLabel}
+          </button>
+          <button
+            type="button"
+            onClick={() => onDecide(item.rule_id, decision === 'keep' ? 'pending' : 'keep')}
+            className={
+              decision === 'keep'
+                ? 'inline-flex items-center gap-1.5 bg-danger-deep border border-danger-deep text-on-brand text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors'
+                : 'inline-flex items-center gap-1.5 bg-surface border border-danger text-danger-deep text-[13px] font-semibold px-3 py-1.5 rounded-md hover:bg-danger/10 transition-colors'
+            }
+          >
+            <X size={14} strokeWidth={2} aria-hidden />
+            {keepLabel}
+          </button>
+        </div>
       )}
     </div>
   )
