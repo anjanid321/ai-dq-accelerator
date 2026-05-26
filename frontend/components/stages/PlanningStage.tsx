@@ -6,10 +6,17 @@ interface Props {
 
 export function PlanningStage({ message }: Props) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-text-muted p-8">
-      <div className="w-8 h-8 border-2 border-indigo border-t-transparent rounded-full animate-spin" />
-      <div className="text-sm text-center">{message ?? 'AI is building your transformation plan...'}</div>
-      <div className="text-xs text-text-muted/60 text-center">Investigation progress is visible in the AI panel on the right.</div>
+    <div className="p-5">
+      <div className="bg-surface border border-border rounded-xl p-6 flex items-center gap-3">
+        <div
+          role="status"
+          aria-label="Planning"
+          className="w-4 h-4 border-2 border-brand-primary border-t-transparent rounded-full animate-spin shrink-0"
+        />
+        <span className="text-xs text-fg-muted">
+          {message ?? 'AI is building your transformation plan…'}
+        </span>
+      </div>
     </div>
   )
 }

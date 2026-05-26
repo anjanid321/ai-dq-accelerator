@@ -1,12 +1,15 @@
 'use client'
 import { useState } from 'react'
+import { ArrowDown, ArrowRight, ArrowUp, X } from 'lucide-react'
 import type { SessionState, TransformPlanStep } from '@/lib/types'
 import { approvePlan } from '@/lib/api'
+import { Chip } from '@/components/ui/Chip'
 import { PlanningStage } from './PlanningStage'
 
 interface Props {
   session: SessionState
   readOnly?: boolean
+  demoMode?: boolean
 }
 
 function ParamEditor({
@@ -19,10 +22,10 @@ function ParamEditor({
   const isComplex = (v: unknown) => typeof v === 'object' && v !== null
 
   return (
-    <div className="space-y-1 mt-2">
+    <div className="flex flex-col gap-1 mt-1">
       {Object.entries(params).map(([key, value]) => (
         <div key={key} className="flex items-start gap-2">
-          <span className="text-xs text-text-muted/70 font-mono w-24 shrink-0 pt-0.5">{key}</span>
+          <span className="text-xs text-fg-subtle font-mono w-24 shrink-0 pt-1">{key}</span>
           <input
             type={typeof value === 'number' ? 'number' : 'text'}
             value={isComplex(value) ? JSON.stringify(value) : String(value ?? '')}
@@ -35,19 +38,12 @@ function ParamEditor({
               }
               onChange({ ...params, [key]: newVal })
             }}
-            className="flex-1 bg-surface border border-border rounded px-2 py-0.5 text-xs text-text font-mono focus:outline-none focus:border-indigo/50"
+            className="flex-1 bg-surface border border-border-strong text-fg rounded-md px-2 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary"
           />
         </div>
       ))}
     </div>
   )
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-border text-text-muted',
-  applied: 'bg-success/20 text-success-light',
-  skipped: 'bg-border/50 text-text-muted/50',
-  failed: 'bg-red-500/20 text-red-400',
 }
 
 function StepCard({
@@ -75,47 +71,65 @@ function StepCard({
   const missingDeps = step.depends_on.filter(d => removedIds.has(d))
 
   return (
-    <div className="rounded-lg bg-surface-raised border border-border p-4 space-y-2">
+    <div className="bg-surface rounded-lg border border-border p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full font-mono bg-indigo/20 text-indigo-300">
-            {step.type}
-          </span>
-          <span className="text-sm font-semibold text-text font-mono">{step.id}</span>
-          {step.column && <span className="text-xs text-text-muted/70 font-mono">· {step.column}</span>}
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <Chip variant="status" tone="accent-indigo">{step.type}</Chip>
+          <span className="text-sm font-semibold text-fg font-mono">{step.id}</span>
+          {step.column && (
+            <span className="text-xs text-fg-subtle font-mono">· {step.column}</span>
+          )}
           {step.needs_review && (
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">
-              ⚠ params need review
-            </span>
+            <Chip variant="status" tone="warning">Params Need Review</Chip>
           )}
         </div>
         {!readOnly && (
           <div className="flex items-center gap-1 shrink-0">
             <button
+              type="button"
               onClick={onMoveUp}
               disabled={index === 0}
-              className="px-1.5 py-0.5 text-xs text-text-muted hover:text-text disabled:opacity-20"
-            >↑</button>
+              aria-label="Move step up"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-md text-fg-muted hover:text-fg hover:bg-elevated transition-colors disabled:opacity-20 disabled:hover:bg-transparent"
+            >
+              <ArrowUp size={14} strokeWidth={2} />
+            </button>
             <button
+              type="button"
               onClick={onMoveDown}
               disabled={index === total - 1}
-              className="px-1.5 py-0.5 text-xs text-text-muted hover:text-text disabled:opacity-20"
-            >↓</button>
+              aria-label="Move step down"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-md text-fg-muted hover:text-fg hover:bg-elevated transition-colors disabled:opacity-20 disabled:hover:bg-transparent"
+            >
+              <ArrowDown size={14} strokeWidth={2} />
+            </button>
             <button
+              type="button"
               onClick={onRemove}
-              className="px-1.5 py-0.5 text-xs text-red-400/60 hover:text-red-400"
-            >✕</button>
+              aria-label="Remove step"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-md text-danger-deep/70 hover:text-danger-deep hover:bg-danger/10 transition-colors"
+            >
+              <X size={14} strokeWidth={2} />
+            </button>
           </div>
         )}
       </div>
 
-      <p className="text-xs text-text-muted leading-relaxed">{step.rationale}</p>
+      <p className="text-xs text-fg-muted leading-relaxed">{step.rationale}</p>
 
       {isCustom ? (
-        <div className="space-y-1">
-          {step.intent && <p className="text-xs text-text-muted/80"><span className="font-semibold">Intent:</span> {step.intent}</p>}
-          {step.approach && <p className="text-xs text-text-muted/80"><span className="font-semibold">Approach:</span> {step.approach}</p>}
-          <div className="text-xs text-text-muted/50 italic">Code generated at execution time.</div>
+        <div className="flex flex-col gap-1">
+          {step.intent && (
+            <p className="text-xs text-fg-muted">
+              <span className="font-semibold text-fg">Intent:</span> {step.intent}
+            </p>
+          )}
+          {step.approach && (
+            <p className="text-xs text-fg-muted">
+              <span className="font-semibold text-fg">Approach:</span> {step.approach}
+            </p>
+          )}
+          <div className="text-xs text-fg-subtle italic">Code generated at execution time.</div>
         </div>
       ) : (
         <ParamEditor
@@ -126,20 +140,25 @@ function StepCard({
 
       <div className="flex flex-wrap items-center gap-2 mt-1">
         {step.targets_rules.map(r => (
-          <span key={r} className="text-[10px] px-1.5 py-0.5 rounded bg-border/50 text-text-muted font-mono">{r}</span>
+          <span
+            key={r}
+            className="text-[10px] px-1.5 py-0.5 rounded bg-elevated text-fg-muted font-mono"
+          >
+            {r}
+          </span>
         ))}
         {step.depends_on.length > 0 && (
-          <span className="text-[10px] text-text-muted/50">
+          <span className="text-[10px] text-fg-subtle">
             depends on: {step.depends_on.join(', ')}
           </span>
         )}
-        <span className="text-xs text-success-light ml-auto">
+        <span className="text-xs text-success-deep font-semibold ml-auto">
           +{(step.projected_score_delta * 100).toFixed(1)}%
         </span>
       </div>
 
       {missingDeps.length > 0 && (
-        <div className="text-xs text-amber-400/80">
+        <div className="text-xs text-warning-deep">
           ⚠ {missingDeps.join(', ')} was removed — this step may be auto-skipped.
         </div>
       )}
@@ -147,7 +166,7 @@ function StepCard({
   )
 }
 
-export function PlanReviewStage({ session, readOnly }: Props) {
+export function PlanReviewStage({ session, readOnly, demoMode }: Props) {
   const { stage, transform_plan, baseline_quality_score } = session
 
   const [steps, setSteps] = useState<TransformPlanStep[]>(() => transform_plan?.steps ?? [])
@@ -161,13 +180,14 @@ export function PlanReviewStage({ session, readOnly }: Props) {
   const removedIds = new Set(
     (transform_plan.steps ?? [])
       .filter(s => !steps.find(e => e.id === s.id))
-      .map(s => s.id)
+      .map(s => s.id),
   )
 
-  const adjustedProjection = baseline_quality_score + steps.reduce((sum, s) => sum + s.projected_score_delta, 0)
+  const adjustedProjection =
+    baseline_quality_score + steps.reduce((sum, s) => sum + s.projected_score_delta, 0)
 
   function updateStep(index: number, updated: TransformPlanStep) {
-    setSteps(prev => prev.map((s, i) => i === index ? updated : s))
+    setSteps(prev => prev.map((s, i) => (i === index ? updated : s)))
   }
 
   function removeStep(index: number) {
@@ -187,6 +207,10 @@ export function PlanReviewStage({ session, readOnly }: Props) {
     setSubmitting(true)
     setError(null)
     try {
+      if (demoMode) {
+        await new Promise(r => setTimeout(r, 600))
+        return
+      }
       await approvePlan(session.session_id, steps)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submission failed')
@@ -195,66 +219,102 @@ export function PlanReviewStage({ session, readOnly }: Props) {
   }
 
   return (
-    <div className="p-6 space-y-5 max-w-3xl mx-auto">
-      {/* Summary header */}
-      <div className="rounded-xl bg-surface-raised border border-border p-4">
-        <div className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Transform Plan</div>
-        <div className="flex flex-wrap gap-4 text-sm">
-          <span className="text-text-muted">{transform_plan.steps.length} steps</span>
-          <span className="text-text-muted">
-            {new Set(transform_plan.steps.flatMap(s => s.targets_rules)).size} rules targeted
-          </span>
-          <span className="text-text-muted">
-            {(baseline_quality_score * 100).toFixed(1)}% → <span className="text-success-light font-semibold">{(transform_plan.projected_final_score * 100).toFixed(1)}%</span> projected
-          </span>
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-base font-bold text-fg">Transformation Plan</h1>
+          <p className="text-xs text-fg-muted">
+            Review the AI-proposed steps. Reorder, edit parameters, or remove steps before approving.
+          </p>
         </div>
-        {transform_plan.summary && (
-          <p className="text-xs text-text-muted/70 mt-2 leading-relaxed">{transform_plan.summary}</p>
-        )}
-      </div>
 
-      {/* Step cards */}
-      <div className="space-y-3">
-        {steps.map((step, i) => (
-          <StepCard
-            key={step.id}
-            step={step}
-            index={i}
-            total={steps.length}
-            removedIds={removedIds}
-            onUpdate={updated => updateStep(i, updated)}
-            onRemove={() => removeStep(i)}
-            onMoveUp={() => moveStep(i, 'up')}
-            onMoveDown={() => moveStep(i, 'down')}
-            readOnly={readOnly}
-          />
-        ))}
-        {steps.length === 0 && (
-          <div className="text-sm text-text-muted/50 text-center py-8">All steps removed.</div>
-        )}
-      </div>
-
-      {/* Sticky approve bar */}
-      {!readOnly && <div className="sticky bottom-4 pt-2">
-        <div className="rounded-xl bg-elevated border border-border p-4 flex items-center justify-between gap-4 shadow-lg">
-          <div className="text-sm text-text-muted">
-            Adjusted projection: <span className="text-success-light font-semibold">{(adjustedProjection * 100).toFixed(1)}%</span>
-            {' '}· {steps.length} {steps.length === 1 ? 'step' : 'steps'}
+        <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            Plan Summary
           </div>
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <span className="text-fg-muted">{transform_plan.steps.length} steps</span>
+            <span className="text-fg-muted">
+              {new Set(transform_plan.steps.flatMap(s => s.targets_rules)).size} rules targeted
+            </span>
+            <span className="text-fg-muted">
+              {(baseline_quality_score * 100).toFixed(1)}%{' '}
+              <ArrowRight size={12} strokeWidth={2} className="inline align-middle text-fg-subtle" />{' '}
+              <span className="text-success-deep font-semibold">
+                {(transform_plan.projected_final_score * 100).toFixed(1)}%
+              </span>{' '}
+              projected
+            </span>
+          </div>
+          {transform_plan.summary && (
+            <div className="bg-accent-purple/15 border border-accent-purple/30 rounded-lg p-3 flex flex-col gap-1.5">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-accent-purple-deep">
+                ✦ AI SUMMARY
+              </div>
+              <p className="text-xs text-accent-purple-deep leading-relaxed">
+                {transform_plan.summary}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {steps.map((step, i) => (
+            <StepCard
+              key={step.id}
+              step={step}
+              index={i}
+              total={steps.length}
+              removedIds={removedIds}
+              onUpdate={updated => updateStep(i, updated)}
+              onRemove={() => removeStep(i)}
+              onMoveUp={() => moveStep(i, 'up')}
+              onMoveDown={() => moveStep(i, 'down')}
+              readOnly={readOnly}
+            />
+          ))}
+          {steps.length === 0 && (
+            <div className="text-sm text-fg-subtle italic text-center py-8">
+              All steps removed.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div
+          data-testid="plan-error"
+          className="bg-danger/15 border-t border-danger/30 px-6 py-2 text-xs text-danger-deep shrink-0"
+        >
+          {error}
+        </div>
+      )}
+
+      {!readOnly && (
+        <div
+          data-testid="plan-footer"
+          className="bg-surface border-t border-border px-6 py-3 flex items-center gap-4 shrink-0"
+        >
+          <div className="text-sm text-fg-muted">
+            Adjusted projection:{' '}
+            <span className="text-success-deep font-semibold">
+              {(adjustedProjection * 100).toFixed(1)}%
+            </span>{' '}
+            · {steps.length} {steps.length === 1 ? 'step' : 'steps'}
+          </div>
+          <div className="flex-1" />
           <button
+            type="button"
             onClick={handleApprove}
             disabled={steps.length === 0 || submitting}
-            className="px-4 py-2 rounded-lg bg-indigo text-white text-sm font-semibold hover:bg-indigo/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            data-testid="approve-plan"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-on-brand text-[13px] font-semibold px-4 py-2 rounded-md hover:bg-brand-accent/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {submitting ? 'Starting...' : 'Approve Plan →'}
+            {submitting ? 'Starting…' : 'Approve Plan'}
+            {!submitting && <ArrowRight size={14} strokeWidth={2} />}
           </button>
         </div>
-        {error && (
-          <div className="mt-2 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-400">
-            {error}
-          </div>
-        )}
-      </div>}
+      )}
     </div>
   )
 }

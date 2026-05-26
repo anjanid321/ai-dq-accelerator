@@ -13,6 +13,8 @@ import type {
   ValidationResults,
   TriageResult,
   TriageClassification,
+  TransformPlan,
+  TransformPlanStep,
 } from '@/lib/types'
 import type { AIEvent } from '@/hooks/useAIStream'
 import type { ExplorationState } from '@/components/stages/ExplorationStage'
@@ -443,6 +445,123 @@ export const DEMO_TRIAGE_SESSION: SessionState = {
   anomaly_summary: DEMO_VALIDATE_SESSION.anomaly_summary,
   validation_results: DEMO_VALIDATION_RESULTS,
   triage_result: DEMO_TRIAGE_RESULT,
+}
+
+// Transform plan mirrors the Triage outcomes:
+// - Accepted threshold relaxations get encoded as 'update_rule' steps
+// - Phone format becomes a normalization transform
+// - Unfixable rules get dropped via 'remove_rule' steps
+const DEMO_TRANSFORM_PLAN_STEPS: TransformPlanStep[] = [
+  {
+    id: 'step-1',
+    type: 'normalize_format',
+    column: 'phone',
+    params: {
+      target_format: '(XXX) XXX-XXXX',
+      strip_chars: '.-+ ',
+    },
+    rationale: 'Strip non-digit chars then reformat 152 phone numbers to the canonical (XXX) XXX-XXXX shape so the format rule passes for every row.',
+    targets_rules: ['r7'],
+    depends_on: [],
+    conflicts_with: [],
+    projected_score_delta: 0.08,
+    needs_review: false,
+    status: 'pending',
+  },
+  {
+    id: 'step-2',
+    type: 'normalize_domain',
+    column: 'employer_domain',
+    params: {
+      strip_protocol: true,
+      lowercase: true,
+    },
+    rationale: 'Canonicalize employer_domain values by stripping https:// prefixes and lowercasing so domain checks compare apples to apples.',
+    targets_rules: ['r13-synth'],
+    depends_on: [],
+    conflicts_with: [],
+    projected_score_delta: 0.02,
+    needs_review: false,
+    status: 'pending',
+  },
+  {
+    id: 'step-3',
+    type: 'update_rule',
+    params: {
+      rule_id: 'r6',
+      new_threshold: 0.97,
+    },
+    rationale: 'Apply the Triage-accepted threshold relaxation for the email regex rule (95% → 97%).',
+    targets_rules: ['r6'],
+    depends_on: [],
+    conflicts_with: [],
+    projected_score_delta: 0.01,
+    needs_review: false,
+    status: 'pending',
+  },
+  {
+    id: 'step-4',
+    type: 'remove_rule',
+    params: {
+      rule_id: 'r9-eval',
+    },
+    rationale: 'Remove the custom_code(format_check) rule that failed to evaluate in the sandbox (NameError on `re` import). Backlog item to rewrite.',
+    targets_rules: ['r9-eval'],
+    depends_on: [],
+    conflicts_with: [],
+    projected_score_delta: 0,
+    needs_review: false,
+    status: 'pending',
+  },
+  {
+    id: 'step-5',
+    type: 'remove_rule',
+    params: {
+      rule_id: 'r10-synth',
+    },
+    rationale: 'Remove the co_signer_phone not_null rule — the column is correctly missing for single-applicant loans.',
+    targets_rules: ['r10-synth'],
+    depends_on: [],
+    conflicts_with: [],
+    projected_score_delta: 0,
+    needs_review: false,
+    status: 'pending',
+  },
+  {
+    id: 'step-6',
+    type: 'custom',
+    column: 'application_date',
+    params: {},
+    rationale: 'Clip 3 application_date entries that fall in the future to today\'s date. Custom step because the precise clip behavior needs to be reviewed before generation.',
+    targets_rules: ['r5'],
+    depends_on: [],
+    conflicts_with: [],
+    projected_score_delta: 0.015,
+    needs_review: true,
+    status: 'pending',
+    intent: 'Clip future-dated application_date values to today.',
+    approach: 'For each row where application_date > today, set application_date = today. Log the original value to a side column for audit.',
+  },
+]
+
+const DEMO_TRANSFORM_PLAN: TransformPlan = {
+  steps: DEMO_TRANSFORM_PLAN_STEPS,
+  summary:
+    'Six steps total. Two normalization transforms (phone format, employer_domain) address transform-fixable failures; one threshold relaxation applies the Triage-accepted email regex change; two rule removals drop the eval_error custom check and the co_signer_phone not_null rule; one custom date-clipping step needs parameter review before generation. Projected lift: 78% → 89.5%.',
+  projected_final_score: 0.895,
+}
+
+export const DEMO_PLAN_SESSION: SessionState = {
+  ...baseSession('AWAITING_PLAN_APPROVAL'),
+  ai_summary: DEMO_AI_SUMMARY,
+  suggested_rules: DEMO_RULES,
+  baseline_quality_score: 0.78,
+  current_score: 0.82,
+  validation_summary: DEMO_VALIDATE_SESSION.validation_summary,
+  anomaly_summary: DEMO_VALIDATE_SESSION.anomaly_summary,
+  validation_results: DEMO_VALIDATION_RESULTS,
+  triage_result: DEMO_TRIAGE_RESULT,
+  transform_plan: DEMO_TRANSFORM_PLAN,
 }
 
 export const DEMO_EXPLORE_STATE: ExplorationState = {
