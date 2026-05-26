@@ -131,7 +131,10 @@ export function Stepper({ activeStage, completedStages, viewingStage, onStageCli
           const done = completedStages.includes(s.id)
           const active = s.id === activeStage
           const viewing = s.id === viewingStage
-          const clickable = done && s.id !== activeStage
+          // Clickable when it's a past stage OR the active stage — anything you
+          // can navigate to. The stage you're currently viewing is excluded so
+          // clicking your own row isn't a confusing no-op.
+          const clickable = (done || active) && !viewing
 
           const circleState: CircleState = done ? 'done' : active ? 'active' : 'locked'
 
