@@ -4,6 +4,7 @@ import { Check, ChevronDown, ChevronUp, Circle, SkipForward, X } from 'lucide-re
 import type { SessionState, TransformPlanStep, ExecutionEscalation } from '@/lib/types'
 import { resolveEscalation } from '@/lib/api'
 import { Chip } from '@/components/ui/Chip'
+import { toTitleCase } from '@/lib/text'
 import { CodeBlock } from './CodeBlock'
 
 interface Props {
@@ -172,41 +173,52 @@ function StepRow({ step, isApplying }: { step: TransformPlanStep; isApplying: bo
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-mono text-fg-subtle">{step.id}</span>
-            <span className="text-xs font-semibold text-fg">{step.type}</span>
+            <span className="text-xs font-semibold text-fg">{toTitleCase(step.type)}</span>
             {step.column && (
               <span className="text-xs text-fg-muted font-mono">· {step.column}</span>
-            )}
-            {hasDetail && (
-              <span className="ml-auto text-fg-subtle">
-                {expanded ? (
-                  <ChevronUp size={14} strokeWidth={2} />
-                ) : (
-                  <ChevronDown size={14} strokeWidth={2} />
-                )}
-              </span>
             )}
           </div>
           <p className="text-xs text-fg-muted truncate">{step.rationale}</p>
         </div>
-        <div className="text-xs shrink-0 text-right min-w-[80px]">
+        <div className="flex items-center gap-2 shrink-0">
           {step.status === 'applied' &&
           step.actual_score_delta !== undefined &&
           step.actual_score_delta !== null ? (
-            <span
-              className={
-                step.actual_score_delta >= 0 ? 'text-success-deep font-semibold' : 'text-danger-deep font-semibold'
-              }
-            >
-              {step.actual_score_delta >= 0 ? '+' : ''}
-              {(step.actual_score_delta * 100).toFixed(1)}%
-              <span className="text-fg-subtle font-normal ml-1">
+            <>
+              <Chip
+                variant="score"
+                tone={step.actual_score_delta >= 0 ? 'success' : 'danger'}
+              >
+                {step.actual_score_delta >= 0 ? '+' : ''}
+                {(step.actual_score_delta * 100).toFixed(1)}%
+              </Chip>
+              <span className="text-[11px] text-fg-subtle hidden md:inline">
                 ({(step.projected_score_delta * 100).toFixed(1)}% proj)
               </span>
-            </span>
+            </>
           ) : step.status === 'pending' ? (
-            <span className="text-fg-subtle">
+            <Chip
+              variant="score"
+              tone={
+                step.projected_score_delta > 0
+                  ? 'success'
+                  : step.projected_score_delta < 0
+                    ? 'danger'
+                    : 'warning'
+              }
+            >
+              {step.projected_score_delta >= 0 ? '+' : ''}
               {(step.projected_score_delta * 100).toFixed(1)}%
-            </span>
+            </Chip>
+          ) : null}
+        </div>
+        <div className="w-5 h-5 flex items-center justify-center shrink-0 text-fg-subtle">
+          {hasDetail ? (
+            expanded ? (
+              <ChevronUp size={14} strokeWidth={2} />
+            ) : (
+              <ChevronDown size={14} strokeWidth={2} />
+            )
           ) : null}
         </div>
       </div>
@@ -365,7 +377,7 @@ function EscalationOverlay({
       <div className="bg-elevated border border-warning rounded-xl p-5 shadow-xl flex flex-col gap-4 ring-1 ring-warning/40">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <Chip variant="status" tone="warning">{escalation.type.replace(/_/g, ' ')}</Chip>
+            <Chip variant="status" tone="warning">{toTitleCase(escalation.type)}</Chip>
             <span className="text-xs text-fg-muted font-mono">{escalation.step_id}</span>
           </div>
           <p className="text-sm text-fg">{escalation.description}</p>

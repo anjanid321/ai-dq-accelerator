@@ -34,7 +34,7 @@ interface Props {
 type DemoStage = 'awaiting' | 'generating' | 'complete'
 
 const FIELD_INPUT_CLASS =
-  'w-full bg-surface border border-border-strong text-fg rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary'
+  'w-full bg-surface border border-border-strong text-fg rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary'
 
 export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
   const [env, setEnv] = useState<TargetEnv>({

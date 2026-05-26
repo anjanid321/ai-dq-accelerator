@@ -4,6 +4,7 @@ import { ArrowRight, Check, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { getScorecard } from '@/lib/api'
 import type { ScorecardResponse, TransformationLogEntry } from '@/lib/types'
 import { Chip } from '@/components/ui/Chip'
+import { toTitleCase } from '@/lib/text'
 import { CodeBlock } from './CodeBlock'
 
 interface Props {
@@ -42,9 +43,9 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
             <X size={14} strokeWidth={2.5} className="text-danger-deep" />
           )}
         </div>
-        <span className="font-mono text-fg truncate flex items-center gap-1.5">
-          {entry.type}
-          {entry.params.column ? <span className="text-fg-subtle"> · {String(entry.params.column)}</span> : null}
+        <span className="text-fg truncate flex items-center gap-1.5">
+          {toTitleCase(entry.type)}
+          {entry.params.column ? <span className="text-fg-subtle font-mono"> · {String(entry.params.column)}</span> : null}
           {hasDetail && (
             <span className="text-fg-subtle ml-1">
               {expanded ? (
@@ -65,7 +66,7 @@ function TransformRow({ entry }: { entry: TransformationLogEntry }) {
         </span>
         <span className="justify-self-start">
           <Chip variant="status" tone={isApplied ? 'success' : 'danger'}>
-            {entry.status}
+            {toTitleCase(entry.status)}
           </Chip>
         </span>
       </div>

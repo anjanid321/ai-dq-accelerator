@@ -4,6 +4,7 @@ import { ArrowDown, ArrowRight, ArrowUp, X } from 'lucide-react'
 import type { SessionState, TransformPlanStep } from '@/lib/types'
 import { approvePlan } from '@/lib/api'
 import { Chip } from '@/components/ui/Chip'
+import { toTitleCase } from '@/lib/text'
 import { PlanningStage } from './PlanningStage'
 
 interface Props {
@@ -38,7 +39,7 @@ function ParamEditor({
               }
               onChange({ ...params, [key]: newVal })
             }}
-            className="flex-1 bg-surface border border-border-strong text-fg rounded-md px-2 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary"
+            className="flex-1 bg-surface border border-border-strong text-fg rounded-md px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary"
           />
         </div>
       ))}
@@ -74,7 +75,7 @@ function StepCard({
     <div className="bg-surface rounded-lg border border-border p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <Chip variant="status" tone="accent-indigo">{step.type}</Chip>
+          <Chip variant="status" tone="accent-indigo">{toTitleCase(step.type)}</Chip>
           <span className="text-sm font-semibold text-fg font-mono">{step.id}</span>
           {step.column && (
             <span className="text-xs text-fg-subtle font-mono">· {step.column}</span>
@@ -152,9 +153,20 @@ function StepCard({
             depends on: {step.depends_on.join(', ')}
           </span>
         )}
-        <span className="text-xs text-success-deep font-semibold ml-auto">
-          +{(step.projected_score_delta * 100).toFixed(1)}%
-        </span>
+        <Chip
+          variant="score"
+          tone={
+            step.projected_score_delta > 0
+              ? 'success'
+              : step.projected_score_delta < 0
+                ? 'danger'
+                : 'warning'
+          }
+          className="ml-auto"
+        >
+          {step.projected_score_delta >= 0 ? '+' : ''}
+          {(step.projected_score_delta * 100).toFixed(1)}%
+        </Chip>
       </div>
 
       {missingDeps.length > 0 && (
