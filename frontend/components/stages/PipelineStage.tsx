@@ -46,7 +46,12 @@ export function PipelineStage({ sessionId, stage, readOnly, demoMode }: Props) {
   })
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
-  const [demoStage, setDemoStage] = useState<DemoStage>('awaiting')
+  // Initialize the demo state machine from the incoming stage so callers can
+  // open Pipeline directly in 'complete' (download visible) state — used by
+  // the demo's COMPLETE session card.
+  const [demoStage, setDemoStage] = useState<DemoStage>(
+    stage === 'COMPLETE' ? 'complete' : stage === 'GENERATING' ? 'generating' : 'awaiting',
+  )
 
   const effectiveStage: WorkflowStage = demoMode
     ? demoStage === 'awaiting'

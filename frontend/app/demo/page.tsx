@@ -10,6 +10,7 @@
 
 import { useMemo, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import type { SessionListEntry, WorkflowStage } from '@/lib/types'
 import { TopBar } from '@/components/workspace/TopBar'
 import { Stepper, type StageDef, type StageId } from '@/components/workspace/Stepper'
 import { AIPanel } from '@/components/ai-panel/AIPanel'
@@ -163,24 +164,45 @@ function SessionsList({ onOpen }: { onOpen: (id: string) => void }) {
   )
 }
 
-// The demo's "live workflow position" is fixed at Validate — matches a
-// session sitting at VALIDATING. Completion and the TopBar score follow
-// `active` (real workspace pattern: current state doesn't change as the user
-// clicks back through the stepper).
 const STAGE_ORDER: StageId[] = [
   'profile', 'explore', 'rules',
   'validate', 'triage', 'plan', 'transform', 'scorecard', 'pipeline',
 ]
-const ACTIVE_STAGE: StageId = 'triage'
-const COMPLETED_STAGES: StageId[] = STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(ACTIVE_STAGE))
 
-function Workspace({ onBack }: { onBack: () => void }) {
-  // Default to the active stage so opening a card lands on the live stage,
-  // exactly like clicking a SessionCard in the real app. Past stages are
-  // reachable via the stepper; the banner's "Return →" link comes back here.
-  const [viewingStage, setViewingStage] = useState<StageId>(ACTIVE_STAGE)
-  const active = ACTIVE_STAGE
-  const completed = COMPLETED_STAGES
+// Maps a session's backend WorkflowStage to the demo's active stepper StageId.
+// LOADING/PROFILING land on 'profile' since the load step is folded into the
+// profile-stage LoadInfoRow. COMPLETE lands on 'pipeline' (the last step).
+const STAGE_MAP: Record<WorkflowStage, StageId> = {
+  LOADING: 'profile',
+  PROFILING: 'profile',
+  AWAITING_INVESTIGATION_REVIEW: 'explore',
+  REINVESTIGATING: 'explore',
+  PROFILING_SYNTHESIS: 'explore',
+  RULE_REVIEW: 'rules',
+  AWAITING_RULE_APPROVAL: 'rules',
+  VALIDATING: 'validate',
+  TRIAGING: 'triage',
+  AWAITING_TRIAGE_APPROVAL: 'triage',
+  PLANNING: 'plan',
+  AWAITING_PLAN_APPROVAL: 'plan',
+  TRANSFORMATION_LOOP: 'transform',
+  AWAITING_HUMAN_INPUT: 'transform',
+  AWAITING_PIPELINE_CONFIRMATION: 'pipeline',
+  GENERATING: 'pipeline',
+  COMPLETE: 'pipeline',
+}
+
+function Workspace({ sessionEntry, onBack }: { sessionEntry: SessionListEntry; onBack: () => void }) {
+  const active = STAGE_MAP[sessionEntry.stage]
+  const isComplete = sessionEntry.stage === 'COMPLETE'
+  // For COMPLETE sessions, every stage including Pipeline is done — pass the
+  // full order as completedStages so each circle renders green-check. For
+  // earlier sessions, completed = stages before active.
+  const completed = isComplete
+    ? STAGE_ORDER
+    : STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(active))
+
+  const [viewingStage, setViewingStage] = useState<StageId>(active)
 
   function renderStage() {
     switch (viewingStage) {
@@ -220,7 +242,7 @@ function Workspace({ onBack }: { onBack: () => void }) {
         return (
           <PipelineStage
             sessionId="demo"
-            stage="AWAITING_PIPELINE_CONFIRMATION"
+            stage={isComplete ? 'COMPLETE' : 'AWAITING_PIPELINE_CONFIRMATION'}
             demoMode
           />
         )
@@ -230,15 +252,16 @@ function Workspace({ onBack }: { onBack: () => void }) {
   }
 
   const isPastStage = viewingStage !== active && DEMO_STAGES.includes(viewingStage)
+  const activeSubStatus = isComplete ? undefined : WAITING_MESSAGES[active]
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <DemoBanner onBack={onBack} />
       <TopBar
-        filename={DEMO_FILENAME}
+        filename={sessionEntry.filename}
         rowCount={DEMO_PROFILE_TABLE.n_rows}
         colCount={DEMO_PROFILE_TABLE.n_columns}
-        currentScore={DEMO_TRIAGE_SESSION.current_score}
+        currentScore={sessionEntry.current_score ?? 0}
       />
       <div className="flex flex-1 overflow-hidden">
         <Stepper
@@ -246,12 +269,12 @@ function Workspace({ onBack }: { onBack: () => void }) {
           completedStages={completed}
           viewingStage={viewingStage}
           onStageClick={(s) => setViewingStage(s)}
-          activeSubStatus={WAITING_MESSAGES[active]}
+          activeSubStatus={activeSubStatus}
           stages={DEMO_STAGE_LIST}
           loadStatus="loaded"
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isPastStage && (
+          {isPastStage && !isComplete && (
             <div className="bg-warning/10 border-b border-warning/30 px-4 py-2 text-xs text-warning-light flex items-center justify-between shrink-0">
               <span>Viewing past stage — {active} is the active stage</span>
               <button className="underline" onClick={() => setViewingStage(active)}>
@@ -272,10 +295,17 @@ function Workspace({ onBack }: { onBack: () => void }) {
 }
 
 export default function DemoPage() {
-  const [view, setView] = useState<'list' | 'workspace'>('list')
+  const [openedSession, setOpenedSession] = useState<SessionListEntry | null>(null)
 
-  if (view === 'list') {
-    return <SessionsList onOpen={() => setView('workspace')} />
+  if (!openedSession) {
+    return (
+      <SessionsList
+        onOpen={(id) => {
+          const entry = DEMO_SESSIONS_LIST.find((s) => s.id === id)
+          if (entry) setOpenedSession(entry)
+        }}
+      />
+    )
   }
-  return <Workspace onBack={() => setView('list')} />
+  return <Workspace sessionEntry={openedSession} onBack={() => setOpenedSession(null)} />
 }
